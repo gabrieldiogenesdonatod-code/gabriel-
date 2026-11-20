@@ -1,0 +1,16 @@
+{
+  "name": "J.A.R.V.I.S BR",
+  "short_name": "JARVIS",
+  "description": "O JARVIS só no celular: conversa por voz sem depender do computador.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#04070d",
+  "theme_color": "#04070d",
+  "lang": "pt-BR",
+  "icons": [
+    {"src": "icone.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"},
+    {"src": "icone.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable"}
+  ]
+}

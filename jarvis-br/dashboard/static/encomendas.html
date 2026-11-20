@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Encomendas · JARVIS</title>
+<!-- Fork PT-BR 2.5: tela ENCOMENDAS — rastreio (17TRACK), suas e os pedidos de fornecedor da loja. -->
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#04070d;--hud:#38d6ff;--hud2:rgba(56,214,255,.2);--hud3:rgba(56,214,255,.06);--texto:#d8f6ff;--mudo:#6d93a5;--ok:#5dff9b;--erro:#ff6b6b;--alerta:#ffcf5c}
+html,body{background:var(--bg);color:var(--texto);font-family:'Segoe UI',-apple-system,sans-serif;min-height:100%}
+header{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--hud2);position:sticky;top:0;background:var(--bg);z-index:2;flex-wrap:wrap}
+.titulo{letter-spacing:4px;font-weight:700;color:var(--hud);font-size:14px;text-shadow:0 0 10px rgba(56,214,255,.5);flex:1}
+#resumo{font-size:12px;color:var(--mudo)}
+main{max-width:860px;margin:0 auto;padding:14px 16px 40px}
+button,input{font:inherit;font-size:13px;color:var(--texto)}
+button{background:rgba(56,214,255,.14);border:1px solid var(--hud2);border-radius:16px;padding:5px 12px;cursor:pointer}
+button:hover{border-color:var(--hud)}
+button.perigo{background:rgba(255,107,107,.1);border-color:rgba(255,107,107,.4)}
+.abas{display:flex;gap:6px;margin:4px 0 12px;flex-wrap:wrap}
+.abas button.on{background:var(--hud);color:#04121b;border-color:var(--hud);font-weight:600}
+form{display:flex;gap:8px;flex-wrap:wrap;border:1px dashed var(--hud2);border-radius:14px;padding:10px;margin-bottom:14px;align-items:center}
+input[type=text]{background:rgba(0,0,0,.35);border:1px solid var(--hud2);border-radius:10px;padding:6px 10px;min-width:0;flex:1 1 150px}
+input[type=text]:focus{outline:none;border-color:var(--hud)}
+label.ck{font-size:12px;color:var(--mudo);display:flex;gap:6px;align-items:center}
+.aviso{font-size:12px;color:var(--alerta);border:1px solid rgba(255,207,92,.35);border-radius:12px;padding:8px 12px;margin-bottom:12px;line-height:1.5}
+#msg{font-size:12px;color:var(--ok);min-height:16px;margin:-6px 0 8px}
+.e{border:1px solid var(--hud2);background:var(--hud3);border-radius:14px;padding:12px 14px;margin-bottom:10px}
+.topo{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.topo b{font-size:15px;flex:1;min-width:160px}
+.cod{font-family:Consolas,monospace;font-size:12px;color:var(--mudo);cursor:pointer}
+.chip{font-size:11px;letter-spacing:.5px;padding:2px 9px;border-radius:9px;border:1px solid currentColor;white-space:nowrap}
+.s-OutForDelivery{color:var(--alerta)}.s-Delivered{color:var(--ok)}.s-Exception,.s-DeliveryFailure{color:var(--erro)}
+.s-AvailableForPickup{color:var(--alerta)}.s-InTransit,.s-InfoReceived{color:var(--hud)}.s-NotFound,.s-Expired{color:var(--mudo)}
+.tag{font-size:11px;color:var(--mudo)}
+.trilha{display:flex;gap:4px;margin:10px 0 6px}
+.trilha i{flex:1;height:5px;border-radius:4px;background:rgba(255,255,255,.08)}
+.trilha i.f{background:linear-gradient(90deg,#1a8fb3,var(--hud))}
+.ultimo{font-size:13px;line-height:1.45}
+.ultimo small{color:var(--mudo)}
+.botoes{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+details{margin-top:8px;font-size:12px;color:var(--mudo)}
+details li{list-style:none;padding:4px 0 4px 12px;border-left:2px solid var(--hud2);margin-left:4px}
+details li span{color:var(--texto)}
+.vazio{color:var(--mudo);text-align:center;margin-top:40px;line-height:1.7}
+a{color:var(--hud)}
+</style>
+</head>
+<body>
+<header><span class="titulo">ENCOMENDAS</span><span id="resumo"></span><button onclick="atualizarAgora(this)">↻ Olhar agora</button></header>
+<main>
+  <div id="semchave" class="aviso" hidden>Sem a chave do 17TRACK eu só guardo a lista. Para eu acompanhar sozinho e avisar
+    "saiu pra entrega": crie uma conta grátis em 17track.net → API, copie a <b>Security Key</b> e cole em ⚙ → Rastreio de encomendas.</div>
+  <form onsubmit="return adicionar(event)">
+    <input type="text" id="f-cod" placeholder="Código (ex.: QB123456789BR)" autocomplete="off" required>
+    <input type="text" id="f-ap" placeholder="O que é (ex.: fone)">
+    <input type="text" id="f-loja" placeholder="Loja ou fornecedor">
+    <label class="ck"><input type="checkbox" id="f-cat"> pedido da loja</label>
+    <button>＋ Rastrear</button>
+  </form>
+  <div id="msg"></div>
+  <div class="abas" id="abas"></div>
+  <div id="lista"><p class="vazio">carregando…</p></div>
+</main>
+<script>
+const T = new URLSearchParams(location.search).get("t") || "";
+const ABAS = [["todas","Em andamento"],["pessoal","Minhas"],["loja","Pedidos da loja"],["entregues","Entregues"]];
+const PASSO = {NotFound:0, InfoReceived:1, InTransit:2, AvailableForPickup:3, OutForDelivery:3, DeliveryFailure:3, Exception:2, Delivered:4, Expired:2};
+let aba = "todas", dados = {encomendas:[]};
+function esc(s){ return String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+async function api(c, corpo){
+  const r = await fetch(c + "?t=" + encodeURIComponent(T), corpo ? {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(corpo)} : {});
+  return r.json();
+}
+function msg(t){ document.getElementById("msg").textContent = t || ""; }
+async function cmd(acao, codigo, extra){
+  if (acao === "remover" && !confirm("Tirar " + codigo + " da lista?")) return;
+  const r = await api("/api/encomendas/cmd", Object.assign({acao, codigo}, extra || {}));
+  msg(r.fala || r.erro || ""); carregar();
+}
+async function adicionar(ev){
+  ev.preventDefault();
+  const loja = document.getElementById("f-loja").value.trim(), daLoja = document.getElementById("f-cat").checked;
+  await cmd("adicionar", document.getElementById("f-cod").value, {apelido: document.getElementById("f-ap").value,
+    categoria: daLoja ? "loja" : "pessoal", loja: daLoja ? "" : loja, fornecedor: daLoja ? loja : ""});
+  ev.target.reset(); return false;
+}
+async function atualizarAgora(b){ b.disabled = true; msg("olhando…"); try { const r = await api("/api/encomendas/cmd", {acao:"atualizar"}); msg(r.fala); } finally { b.disabled = false; carregar(); } }
+function copiar(c){ navigator.clipboard && navigator.clipboard.writeText(c); msg("Código copiado: " + c); }
+function cartao(e){
+  const passo = PASSO[e.status] ?? 0;
+  const origem = e.categoria === "loja" ? "loja" + (e.fornecedor ? " · " + esc(e.fornecedor) : "") : esc(e.loja || "");
+  return `<div class="e">
+    <div class="topo"><b>${esc(e.apelido || e.codigo)}</b><span class="chip s-${esc(e.status)}">${esc(e.status_pt)}</span></div>
+    <div class="tag"><span class="cod" title="copiar" onclick="copiar('${esc(e.codigo)}')">${esc(e.codigo)}</span>${e.transportadora ? " · " + esc(e.transportadora) : ""}${origem ? " · " + origem : ""}</div>
+    <div class="trilha">${[1,2,3,4].map(i => `<i class="${i <= passo ? "f" : ""}"></i>`).join("")}</div>
+    <div class="ultimo">${e.evento ? esc(e.evento) + (e.local ? ` <small>— ${esc(e.local)}</small>` : "") + (e.ha ? ` <small>· ${esc(e.ha)}</small>` : "") : `<small>${e.erro ? "⚠ " + esc(e.erro) : "esperando a primeira informação da transportadora"}</small>`}</div>
+    ${(e.eventos||[]).length ? `<details><summary>${e.eventos.length} movimento(s)</summary><ul>${e.eventos.map(v => `<li>${esc((v.quando||"").slice(0,16).replace("T"," "))} · <span>${esc(v.texto)}</span>${v.local ? " — " + esc(v.local) : ""}</li>`).join("")}</ul></details>` : ""}
+    <div class="botoes"><a href="${esc(e.link)}" target="_blank" rel="noopener"><button type="button">Abrir no 17TRACK</button></a>
+      ${e.arquivada ? "" : `<button onclick="cmd('recebida','${esc(e.codigo)}')">✓ Recebi</button><button class="perigo" onclick="cmd('remover','${esc(e.codigo)}')">✕ Remover</button>`}</div>
+  </div>`;
+}
+function desenhar(){
+  const todas = dados.encomendas || [];
+  const ativas = todas.filter(e => !e.arquivada);
+  const filtro = {todas: ativas, pessoal: ativas.filter(e => e.categoria !== "loja"), loja: ativas.filter(e => e.categoria === "loja"),
+                  entregues: todas.filter(e => e.arquivada || e.status === "Delivered").slice().reverse()}[aba];
+  document.getElementById("abas").innerHTML = ABAS.map(([k, n]) => `<button class="${k === aba ? "on" : ""}" onclick="aba='${k}';desenhar()">${n}</button>`).join("");
+  const saindo = ativas.filter(e => e.status === "OutForDelivery").length;
+  document.getElementById("resumo").textContent = `${ativas.length} em andamento` + (saindo ? ` · ${saindo} saiu pra entrega` : "");
+  document.getElementById("semchave").hidden = !!dados.tem_chave;
+  document.getElementById("lista").innerHTML = filtro.length ? filtro.map(cartao).join("")
+    : `<p class="vazio">Nada aqui.<br>Diga "Jarvis, rastreia esse código" ou cole o código acima.</p>`;
+}
+async function carregar(){ try { dados = await api("/api/encomendas"); desenhar(); } catch(e){} }
+carregar(); setInterval(carregar, 15000);
+</script>
+</body>
+</html>

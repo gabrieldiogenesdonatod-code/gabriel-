@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Memória · JARVIS</title>
+<!-- Fork PT-BR 2.4: mapa da memória em grafo (pessoas, projetos, produtos, lugares e lembranças) com busca por significado. -->
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#04070d;--hud:#38d6ff;--hud2:rgba(56,214,255,.2);--hud3:rgba(56,214,255,.07);--texto:#d8f6ff;--mudo:#6d93a5}
+html,body{background:var(--bg);color:var(--texto);font-family:'Segoe UI',-apple-system,sans-serif;height:100%;overflow:hidden}
+body{display:grid;grid-template-columns:1fr 340px;grid-template-rows:auto 1fr;height:100%}
+header{grid-column:1/3;display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--hud2)}
+.titulo{letter-spacing:3px;font-weight:700;color:var(--hud);font-size:13px;text-shadow:0 0 10px rgba(56,214,255,.5)}
+#stats{font-size:11px;color:var(--mudo);flex:1}
+form{display:flex;gap:6px}
+input{font:inherit;font-size:13px;background:var(--hud3);border:1px solid var(--hud2);color:var(--texto);border-radius:18px;padding:7px 14px;width:min(42vw,360px);outline:none}
+input:focus{border-color:var(--hud)}
+button{font:inherit;font-size:12px;color:var(--texto);background:rgba(56,214,255,.16);border:1px solid var(--hud2);border-radius:18px;padding:6px 12px;cursor:pointer}
+#mapa{width:100%;height:100%;display:block;cursor:grab}
+aside{border-left:1px solid var(--hud2);overflow-y:auto;padding:12px 14px}
+aside h3{font-size:11px;letter-spacing:2px;color:var(--hud);margin:6px 0 8px}
+.res{padding:9px 10px;border-radius:10px;background:var(--hud3);margin-bottom:8px;font-size:13px;line-height:1.35}
+.res small{display:block;color:var(--mudo);font-size:11px;margin-top:4px}
+.nota{float:right;font-size:10px;color:var(--hud)}
+.legenda{display:flex;flex-wrap:wrap;gap:8px;font-size:11px;color:var(--mudo);margin-bottom:10px}
+.legenda i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:4px;vertical-align:middle}
+.vazio{color:var(--mudo);font-size:13px;line-height:1.5}
+@media (max-width:760px){body{grid-template-columns:1fr;grid-template-rows:auto 55% 1fr}aside{border-left:0;border-top:1px solid var(--hud2)}
+ header{grid-column:1;flex-wrap:wrap;padding:10px 16px}#stats{order:3;flex-basis:100%}form{flex:1;min-width:0}input{width:100%;min-width:0}}
+#mapa{touch-action:none}
+</style>
+</head>
+<body>
+<header>
+  <span class="titulo">MEMÓRIA</span>
+  <span id="stats">carregando…</span>
+  <form id="busca"><input id="q" placeholder="Pergunte: o que eu decidi sobre o capacete?" autocomplete="off"><button>Buscar</button></form>
+</header>
+<canvas id="mapa"></canvas>
+<aside>
+  <div class="legenda" id="legenda"></div>
+  <h3 id="titulo-lado">COMO USAR</h3>
+  <div id="lado"><p class="vazio">Arraste o mapa, use a roda do mouse para aproximar e clique numa bolinha para ver o que está ligado a ela. A busca entende o significado: não precisa da palavra exata.</p></div>
+</aside>
+<script>
+const T = new URLSearchParams(location.search).get("t") || "";
+const CORES = {pessoa:"#ffb86b", projeto:"#38d6ff", produto:"#b58cff", lugar:"#5dff9b", empresa:"#ff6bb5", assunto:"#9fb9c6", fato:"#2a5266"};
+const NOMES = {pessoa:"pessoas", projeto:"projetos", produto:"produtos", lugar:"lugares", empresa:"empresas", assunto:"assuntos", fato:"lembranças"};
+const cv = document.getElementById("mapa"), cx = cv.getContext("2d");
+let nos = [], arestas = [], porId = {}, cam = {x:0, y:0, z:1}, destaque = new Set(), selecionado = null;
+
+async function api(c){ const r = await fetch(c + (c.includes("?")?"&":"?") + "t=" + encodeURIComponent(T)); return r.json(); }
+function esc(s){ return String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function data(ts){ return new Date(ts*1000).toLocaleDateString("pt-BR"); }
+
+document.getElementById("legenda").innerHTML = Object.entries(NOMES).map(([k,v]) => `<span><i style="background:${CORES[k]}"></i>${v}</span>`).join("");
+
+function tamanho(){ const r = cv.getBoundingClientRect(); cv.width = r.width*devicePixelRatio; cv.height = r.height*devicePixelRatio; }
+addEventListener("resize", tamanho);
+
+async function carregar(){
+  const g = await api("/api/grafo");
+  const e = g.estatisticas || {}; const t = e.tipos || {};
+  const total = Object.values(t).reduce((a,b)=>a+b,0);
+  document.getElementById("stats").textContent = total
+    ? `${t.fato||0} lembranças · ${total-(t.fato||0)} coisas · ${e.arestas||0} ligações` + (e.rede ? ` · rede neural com ${e.rede.palavras} palavras` : "")
+    : "memória vazia — diga \"Jarvis, importa as memórias para o grafo\"";
+  nos = (g.nos||[]).map((n,i) => ({...n, x:Math.cos(i)*200*Math.random(), y:Math.sin(i)*200*Math.random(), vx:0, vy:0}));
+  porId = Object.fromEntries(nos.map(n => [n.id, n]));
+  arestas = (g.arestas||[]).filter(a => porId[a.a] && porId[a.b]);
+}
+
+function simular(){
+  const k = 0.012, rep = 900;
+  for (let i=0;i<nos.length;i++){ const a = nos[i];
+    for (let j=i+1;j<nos.length;j++){ const b = nos[j];
+      let dx=a.x-b.x, dy=a.y-b.y, d2=dx*dx+dy*dy+0.01; if (d2>90000) continue;
+      const f = rep/d2; a.vx+=dx*f*0.02; a.vy+=dy*f*0.02; b.vx-=dx*f*0.02; b.vy-=dy*f*0.02; } }
+  for (const e of arestas){ const a=porId[e.a], b=porId[e.b]; const dx=b.x-a.x, dy=b.y-a.y;
+    const alvo = (a.tipo==="fato"||b.tipo==="fato") ? 60 : 110;
+    const d = Math.sqrt(dx*dx+dy*dy)||1, f=(d-alvo)*k; a.vx+=dx/d*f; a.vy+=dy/d*f; b.vx-=dx/d*f; b.vy-=dy/d*f; }
+  for (const n of nos){ n.vx -= n.x*0.0008; n.vy -= n.y*0.0008; n.vx*=0.85; n.vy*=0.85; n.x+=n.vx; n.y+=n.vy; }
+}
+
+function raio(n){ return n.tipo==="fato" ? 4 : 6 + Math.min(10, (n.grau||1)); }
+function desenhar(){
+  simular();
+  const w=cv.width, h=cv.height; cx.setTransform(1,0,0,1,0,0); cx.clearRect(0,0,w,h);
+  cx.setTransform(cam.z*devicePixelRatio,0,0,cam.z*devicePixelRatio, w/2+cam.x*devicePixelRatio, h/2+cam.y*devicePixelRatio);
+  cx.lineWidth = 1/cam.z;
+  for (const e of arestas){ const a=porId[e.a], b=porId[e.b];
+    const on = destaque.has(a.id)||destaque.has(b.id);
+    cx.strokeStyle = on ? "rgba(56,214,255,.75)" : "rgba(56,214,255,.12)"; cx.beginPath(); cx.moveTo(a.x,a.y); cx.lineTo(b.x,b.y); cx.stroke(); }
+  for (const n of nos){ const on = destaque.has(n.id) || n===selecionado;
+    cx.beginPath(); cx.arc(n.x,n.y,raio(n)*(on?1.5:1),0,7); cx.fillStyle = CORES[n.tipo]||"#888";
+    cx.globalAlpha = destaque.size && !on ? 0.35 : 1; cx.fill(); cx.globalAlpha = 1;
+    if (on) { cx.strokeStyle="#fff"; cx.stroke(); }
+    if (n.tipo!=="fato" && (cam.z>0.7 || on)){ cx.fillStyle = on ? "#fff" : "rgba(216,246,255,.8)"; cx.font = `${11/cam.z}px Segoe UI`;
+      cx.fillText(n.nome, n.x+raio(n)+3, n.y+4); } }
+  requestAnimationFrame(desenhar);
+}
+
+function noEm(px,py){ const r=cv.getBoundingClientRect(); const x=(px-r.left-r.width/2-cam.x)/cam.z, y=(py-r.top-r.height/2-cam.y)/cam.z;
+  return nos.find(n => (n.x-x)**2+(n.y-y)**2 < (raio(n)+4)**2); }
+let arrasto = null;
+cv.addEventListener("pointerdown", e => { arrasto = {x:e.clientX, y:e.clientY, cx:cam.x, cy:cam.y, moveu:false}; });
+addEventListener("pointermove", e => { if (!arrasto) return; const dx=e.clientX-arrasto.x, dy=e.clientY-arrasto.y;
+  if (Math.abs(dx)+Math.abs(dy)>3) arrasto.moveu = true; cam.x = arrasto.cx+dx; cam.y = arrasto.cy+dy; });
+addEventListener("pointerup", e => { if (arrasto && !arrasto.moveu){ const n = noEm(e.clientX, e.clientY); if (n) abrir(n); } arrasto = null; });
+cv.addEventListener("wheel", e => { e.preventDefault(); cam.z = Math.max(0.25, Math.min(4, cam.z*(e.deltaY<0?1.12:0.89))); }, {passive:false});
+
+async function abrir(n){
+  selecionado = n;
+  if (n.tipo === "fato"){
+    destaque = new Set([n.id, ...arestas.filter(a=>a.a===n.id||a.b===n.id).map(a=>a.a===n.id?a.b:a.a)]);
+    document.getElementById("titulo-lado").textContent = "LEMBRANÇA";
+    document.getElementById("lado").innerHTML = `<div class="res">${esc(n.texto)}<small>${data(n.ts)}</small></div>`;
+    return;
+  }
+  const c = await api("/api/grafo/no?nome=" + encodeURIComponent(n.nome));
+  destaque = new Set([n.id, ...(c.fatos||[]).map(f=>f.id), ...(c.ligados||[]).map(f=>f.id)]);
+  document.getElementById("titulo-lado").textContent = (n.nome||"").toUpperCase();
+  document.getElementById("lado").innerHTML =
+    ((c.ligados||[]).length ? `<p class="vazio">Ligado a: ${(c.ligados||[]).slice(0,12).map(l=>esc(l.nome)).join(", ")}</p><br>` : "") +
+    ((c.fatos||[]).map(f => `<div class="res">${esc(f.texto)}<small>${data(f.ts)}</small></div>`).join("") || '<p class="vazio">Nenhuma lembrança ligada.</p>');
+}
+
+document.getElementById("busca").addEventListener("submit", async ev => {
+  ev.preventDefault();
+  const q = document.getElementById("q").value.trim(); if (!q) return;
+  document.getElementById("titulo-lado").textContent = "RESULTADOS";
+  document.getElementById("lado").innerHTML = '<p class="vazio">procurando pelo significado…</p>';
+  const r = await api("/api/grafo/buscar?q=" + encodeURIComponent(q));
+  const res = r.resultados || [];
+  destaque = new Set(res.map(x => x.id)); selecionado = null;
+  document.getElementById("lado").innerHTML = res.length
+    ? res.map(x => `<div class="res"><span class="nota">${Math.round(x.nota*100)}%</span>${esc(x.texto)}<small>${data(x.ts)} · ${esc(x.fonte)}</small></div>`).join("")
+    : '<p class="vazio">Não achei nada parecido.</p>';
+});
+
+tamanho(); cam.z = Math.max(0.5, Math.min(1, cv.getBoundingClientRect().width / 900)); carregar().then(desenhar);
+</script>
+</body>
+</html>

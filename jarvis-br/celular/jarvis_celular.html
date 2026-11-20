@@ -1,0 +1,447 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#02070d">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icone.svg">
+<title>J.A.R.V.I.S</title>
+<style>
+:root{--bg:#02070d;--bg2:#06121d;--linha:#0f3a52;--ciano:#29d9ff;--ciano2:#7befff;--txt:#d8f6ff;--fraco:#6c93a6;
+--ouro:#ffb547;--verm:#ff4d6d;--verde:#3dffa8;--r:14px}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+body{display:flex;flex-direction:column;background:radial-gradient(circle at 50% 18%,#0a2a3d 0,var(--bg) 60%)}
+header{display:flex;align-items:center;gap:10px;padding:calc(10px + env(safe-area-inset-top)) 16px 8px}
+header h1{margin:0;font-size:17px;letter-spacing:.32em;font-weight:600;color:var(--ciano2)}
+#modoChip{margin-left:auto;font-size:12px;padding:4px 10px;border:1px solid var(--linha);border-radius:99px;color:var(--fraco);max-width:48%;
+white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#modoChip.on{color:var(--ouro);border-color:var(--ouro)}
+main{flex:1;overflow:hidden;position:relative}
+.aba{position:absolute;inset:0;overflow-y:auto;padding:4px 16px 24px;display:none}
+.aba.ativa{display:block}
+nav{display:flex;border-top:1px solid var(--linha);background:#03101acc;backdrop-filter:blur(8px);padding-bottom:env(safe-area-inset-bottom)}
+nav button{flex:1;background:none;border:0;color:var(--fraco);padding:9px 0 8px;font-size:11px;display:flex;flex-direction:column;align-items:center;gap:3px}
+nav button svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.7}
+nav button.ativa{color:var(--ciano)}
+/* conversa */
+#conversa{display:none;flex-direction:column;padding:0}
+#conversa.ativa{display:flex}
+#reator{display:flex;flex-direction:column;align-items:center;padding:6px 0 4px}
+#nucleo{width:132px;height:132px;border-radius:50%;border:0;padding:0;background:none;position:relative;cursor:pointer}
+#nucleo svg{width:100%;height:100%}
+#nucleo .anel{transform-origin:50% 50%;animation:gira 14s linear infinite}
+#nucleo .anel2{transform-origin:50% 50%;animation:gira 9s linear infinite reverse}
+#nucleo.ouvindo .brilho{fill:var(--verde)} #nucleo.ouvindo .anel{animation-duration:3s}
+#nucleo.pensando .anel,#nucleo.pensando .anel2{animation-duration:1.4s}
+#nucleo.falando .brilho{animation:pulsa .6s ease-in-out infinite alternate}
+@keyframes gira{to{transform:rotate(360deg)}} @keyframes pulsa{to{opacity:.45}}
+#status{font-size:12px;color:var(--fraco);letter-spacing:.12em;text-transform:uppercase;margin-top:4px;min-height:18px}
+#chat{flex:1;overflow-y:auto;padding:4px 16px 8px;display:flex;flex-direction:column;gap:8px}
+.msg{max-width:86%;padding:9px 12px;border-radius:var(--r);white-space:pre-wrap;word-wrap:break-word}
+.eu{align-self:flex-end;background:#0d3247;border:1px solid #16506e}
+.ele{align-self:flex-start;background:var(--bg2);border:1px solid var(--linha)}
+.ele small{display:block;color:var(--fraco);font-size:11px;margin-top:4px}
+.sis{align-self:center;color:var(--fraco);font-size:12px;text-align:center}
+#barra{display:flex;gap:8px;padding:8px 12px;border-top:1px solid var(--linha)}
+#entrada{flex:1;background:var(--bg2);border:1px solid var(--linha);color:var(--txt);border-radius:99px;padding:11px 16px;font-size:15px;outline:none}
+#entrada:focus{border-color:var(--ciano)}
+.redondo{width:44px;height:44px;border-radius:50%;border:1px solid var(--linha);background:var(--bg2);color:var(--ciano);display:grid;place-items:center;flex:none}
+.redondo svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8}
+.redondo.on{background:var(--ciano);color:var(--bg)}
+#opcoes{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;padding:0 12px 2px}
+.pill{font-size:12px;padding:5px 11px;border-radius:99px;border:1px solid var(--linha);background:none;color:var(--fraco)}
+.pill.on{color:var(--ciano);border-color:var(--ciano)}
+/* listas */
+h2{font-size:13px;letter-spacing:.2em;text-transform:uppercase;color:var(--ciano2);margin:14px 0 8px;font-weight:600}
+.busca{width:100%;background:var(--bg2);border:1px solid var(--linha);color:var(--txt);border-radius:10px;padding:10px 12px;font-size:15px;outline:none;margin-bottom:8px}
+.grade{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.card{background:var(--bg2);border:1px solid var(--linha);border-radius:12px;padding:10px 12px;text-align:left;color:var(--txt);font:inherit;width:100%}
+.card b{display:block;font-size:14px;margin-bottom:3px}
+.card span{display:block;font-size:12px;color:var(--fraco);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.card.on{border-color:var(--ouro);box-shadow:0 0 0 1px var(--ouro) inset}
+.card.on b{color:var(--ouro)}
+.linha{display:flex;align-items:center;gap:10px;padding:10px 2px;border-bottom:1px solid #0b2533}
+.linha .t{flex:1;min-width:0} .linha .t b{font-size:14px;display:block} .linha .t span{font-size:12px;color:var(--fraco)}
+.tg{width:42px;height:24px;border-radius:99px;background:#183245;position:relative;flex:none;border:0}
+.tg::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#6c93a6;transition:.15s}
+.tg.on{background:#0f5e78} .tg.on::after{left:21px;background:var(--ciano)}
+.btn{background:var(--ciano);color:var(--bg);border:0;border-radius:10px;padding:11px 16px;font-weight:600;font-size:14px}
+.btn.sec{background:none;color:var(--ciano);border:1px solid var(--linha)}
+label{display:block;font-size:12px;color:var(--fraco);margin:12px 0 4px}
+input.campo,select.campo,textarea.campo{width:100%;background:var(--bg2);border:1px solid var(--linha);color:var(--txt);border-radius:10px;padding:10px 12px;font-size:15px;font-family:inherit}
+.aviso{background:var(--bg2);border:1px solid var(--linha);border-left:3px solid var(--ciano);border-radius:10px;padding:10px 12px;margin-bottom:8px;white-space:pre-wrap}
+.aviso b{display:block;color:var(--ciano2);font-size:13px;margin-bottom:4px}
+.aviso time{float:right;font-size:11px;color:var(--fraco)}
+.dica{font-size:13px;color:var(--fraco)}
+.dica a{color:var(--ciano)}
+#boasvindas{background:var(--bg2);border:1px solid var(--ouro);border-radius:12px;padding:12px;margin:8px 16px;display:none}
+/* corpo (3.1 · Biological Core) */
+.corpoTopo{display:flex;align-items:baseline;gap:8px;margin:10px 0 2px}
+.corpoTopo b{font-size:40px;font-variant-numeric:tabular-nums} .corpoTopo span{color:var(--fraco);font-size:13px}
+#corpoSvg{max-width:380px;margin:0 auto}
+.org{display:flex;gap:10px;align-items:flex-start;padding:8px 2px;border-bottom:1px solid #0b2533}
+.org i{width:10px;height:10px;border-radius:50%;flex:none;margin-top:6px}
+.org .t{flex:1;min-width:0} .org .t b{display:block;font-size:14px} .org .t span{font-size:12px;color:var(--fraco);overflow-wrap:anywhere}
+.acoes{display:flex;gap:8px;margin-top:8px} .acoes .btn{padding:8px 12px;font-size:13px}
+</style>
+</head>
+<body>
+<header>
+  <h1>J.A.R.V.I.S</h1>
+  <span id="modoChip">modo normal</span>
+</header>
+
+<main>
+  <!-- CONVERSA -->
+  <section id="conversa" class="aba ativa">
+    <div id="boasvindas">Para começar, vá em <b>Ajustes</b> e cole a sua chave grátis do Gemini.</div>
+    <div id="reator">
+      <button id="nucleo" aria-label="Falar">
+        <svg viewBox="0 0 120 120">
+          <circle cx="60" cy="60" r="56" fill="none" stroke="#0f3a52" stroke-width="2"/>
+          <g class="anel"><circle cx="60" cy="60" r="48" fill="none" stroke="#29d9ff" stroke-width="2" stroke-dasharray="20 8"/></g>
+          <g class="anel2"><circle cx="60" cy="60" r="38" fill="none" stroke="#7befff" stroke-width="1.5" stroke-dasharray="4 6"/></g>
+          <circle class="brilho" cx="60" cy="60" r="24" fill="#29d9ff" opacity=".9"/>
+          <circle cx="60" cy="60" r="14" fill="#d8f6ff"/>
+        </svg>
+      </button>
+      <div id="status">toque para falar</div>
+    </div>
+    <div id="opcoes">
+      <button class="pill" id="optMaos">mãos livres</button>
+      <button class="pill" id="optJarvis">só se eu disser "Jarvis"</button>
+      <button class="pill on" id="optVoz">voz ligada</button>
+      <button class="pill" id="optLimpar">nova conversa</button>
+    </div>
+    <div id="chat"></div>
+    <form id="barra">
+      <input id="entrada" placeholder="Fale ou digite…" autocomplete="off">
+      <button class="redondo" aria-label="Enviar"><svg viewBox="0 0 24 24"><path d="M4 12l16-8-6 16-2-7z"/></svg></button>
+    </form>
+  </section>
+
+  <!-- MODOS -->
+  <section id="modos" class="aba">
+    <h2>Modo atual</h2>
+    <div class="linha"><div class="t"><b id="modoAtual">Normal</b><span id="modoJeito">Sem modo especial.</span></div>
+      <button class="btn sec" id="sairModo">Sair</button></div>
+    <h2>Todos os modos <span id="nModos" class="dica"></span></h2>
+    <input class="busca" id="buscaModos" placeholder="Procurar modo (treino, debug, festa…)">
+    <div class="grade" id="gradeModos"></div>
+    <h2>Criar o meu modo</h2>
+    <label>Nome</label><input class="campo" id="novoNome" placeholder="ex.: estudo de inglês">
+    <label>Como o JARVIS deve falar</label><input class="campo" id="novoJeito" placeholder="ex.: calmo, só em inglês">
+    <label>Passos ao entrar (separe com ;)</label><input class="campo" id="novoPassos" placeholder="ex.: mensagem Bora estudar; site https://…">
+    <p><button class="btn" id="criarModo">Criar modo</button></p>
+  </section>
+
+  <!-- PLUGINS -->
+  <section id="plugins" class="aba">
+    <h2>Plugins <span id="nPlugins" class="dica"></span></h2>
+    <input class="busca" id="buscaPlugins" placeholder="Procurar plugin (calculadora, loja, lua…)">
+    <div id="listaPlugins"></div>
+  </section>
+
+  <!-- AVISOS -->
+  <section id="avisos" class="aba">
+    <h2>Avisos e resultados</h2>
+    <div id="listaAvisos"><p class="dica">Timers, lembretes e respostas longas aparecem aqui.</p></div>
+  </section>
+
+  <!-- CORPO (3.1) -->
+  <section id="corpo" class="aba">
+    <div class="corpoTopo"><b id="corpoNota">—</b><span id="corpoInfo">carregando o organismo…</span></div>
+    <div id="corpoSvg"></div>
+    <h2>Esperando o seu sim</h2><div id="corpoPedidos"></div>
+    <h2>Órgãos</h2><div id="corpoOrgaos"></div>
+    <h2>Sistema imunológico</h2><div id="corpoCamadas"></div>
+    <h2>Problemas e isolados</h2><div id="corpoProblemas"></div>
+    <h2>Decisões do cérebro</h2><div id="corpoDecisoes"></div>
+    <p><button class="btn sec" id="corpoExame">Fazer exame completo</button></p>
+  </section>
+
+  <!-- AJUSTES -->
+  <section id="ajustes" class="aba">
+    <h2>Cérebro</h2>
+    <label>Chave do Gemini (grátis em <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--ciano)">aistudio.google.com</a>)</label>
+    <input class="campo" id="cfgChave" type="password" placeholder="cole aqui (fica só neste celular)">
+    <label>Modelo</label>
+    <select class="campo" id="cfgModelo">
+      <option value="">automático (recomendado)</option>
+      <option>gemini-2.5-flash</option><option>gemini-flash-latest</option>
+      <option>gemini-2.5-flash-lite</option><option>gemini-flash-lite-latest</option>
+    </select>
+    <label>Seu nome</label><input class="campo" id="cfgNome">
+    <p><button class="btn" id="salvar">Salvar</button></p>
+    <h2>Voz</h2>
+    <label>Velocidade da fala: <span id="velTxt">1.05</span></label>
+    <input type="range" id="cfgVel" min=".7" max="1.6" step=".05" value="1.05" style="width:100%">
+    <label>Voz</label><select class="campo" id="cfgVoz"></select>
+    <p><button class="btn sec" id="testarVoz">Testar voz</button></p>
+    <h2>Sobre</h2>
+    <p class="dica" id="sobre"></p>
+  </section>
+</main>
+
+<nav>
+  <button data-aba="conversa" class="ativa"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></svg>Conversa</button>
+  <button data-aba="modos"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h6"/></svg>Modos</button>
+  <button data-aba="plugins"><svg viewBox="0 0 24 24"><path d="M9 3v4M15 3v4M7 7h10v5a5 5 0 01-10 0zM12 17v4"/></svg>Plugins</button>
+  <button data-aba="avisos"><svg viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0112 0v5l2 2H4zM10 20h4"/></svg>Avisos</button>
+  <button data-aba="corpo"><svg viewBox="0 0 24 24"><path d="M3 12h4l2-5 4 10 2-5h6"/></svg>Corpo</button>
+  <button data-aba="ajustes"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg>Ajustes</button>
+</nav>
+
+<script>
+const $ = s => document.querySelector(s);
+const SENHA = new URLSearchParams(location.search).get("s") || "";
+const guardar = (k, v) => { try { localStorage.setItem(k, v) } catch (e) {} };
+const ler = (k, d) => { try { return localStorage.getItem(k) ?? d } catch (e) { return d } };
+let E = { modos: [], plugins: [], modo: "" }, ultimoEvento = 0, maosLivres = false, vozOn = ler("vozOn", "1") === "1";
+let falando = false, ouvindo = false, reconhecedor = null, soJarvis = ler("soJarvis", "0") === "1";
+
+async function api(caminho, corpo) {
+  const op = { headers: { "Content-Type": "application/json", "X-Senha": SENHA } };
+  if (corpo !== undefined) { op.method = "POST"; op.body = JSON.stringify(corpo); }
+  const r = await fetch(caminho, op);
+  return r.json();
+}
+
+/* ── abas ── */
+document.querySelectorAll("nav button").forEach(b => b.onclick = () => {
+  document.querySelectorAll("nav button, .aba").forEach(x => x.classList.remove("ativa"));
+  b.classList.add("ativa"); $("#" + b.dataset.aba).classList.add("ativa");
+  guardar("aba", b.dataset.aba);
+});
+
+/* ── corpo: o painel do Biological Core (3.1) ── */
+const CORES = { azul: "#3fa9ff", amarelo: "#f5c542", vermelho: "#ff4d5e", verde: "#34d399" };
+const esc = t => String(t ?? "—").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+function linhaOrg(cor, titulo, texto, extra) {
+  return `<div class="org"><i style="background:${CORES[cor] || cor}"></i><div class="t"><b>${esc(titulo)}</b><span>${esc(texto)}</span>${extra || ""}</div></div>`;
+}
+async function carregarCorpo() {
+  let r; try { r = await api("/api/corpo" + (SENHA ? "?s=" + SENHA : "")); } catch (e) { return; }
+  if (!r.ligado) { $("#corpoInfo").textContent = "o organismo está desligado"; return; }
+  const d = r.dados;
+  $("#corpoNota").textContent = d.nota; $("#corpoNota").style.color = CORES[d.cor];
+  $("#corpoInfo").textContent = `/100 · ${d.cor} · ${d.tendencia} · proteção ${d.protecao}%` + (d.febre ? " · FEBRE" : "");
+  $("#corpoSvg").innerHTML = r.svg;
+  $("#corpoPedidos").innerHTML = d.pedidos.length ? d.pedidos.map(p => linhaOrg("amarelo", p.id + " · " + p.titulo, p.detalhe,
+    `<div class="acoes"><button class="btn" data-ok="${esc(p.id)}">Autorizar</button><button class="btn sec" data-nao="${esc(p.id)}">Negar</button></div>`)).join("")
+    : `<p class="dica">Nenhum reparo esperando você.</p>`;
+  $("#corpoOrgaos").innerHTML = Object.values(d.orgaos).map(o => linhaOrg(o.cor, o.titulo, o.detalhe)).join("");
+  $("#corpoCamadas").innerHTML = d.camadas.map(c => linhaOrg(c.ok ? "verde" : (c.ok === null ? "#5b7896" : "vermelho"), c.camada + " · " + c.nome, c.detalhe)).join("");
+  const probs = d.incidentes.map(i => linhaOrg(i.gravidade === "alta" || i.gravidade === "critica" ? "vermelho" : "amarelo",
+      `#${i.id} ${i.modulo} (${i.categoria})`, `${i.estado} · ${i.ocorrencias}× — ${i.mensagem}`))
+    .concat(d.isolados.map(i => linhaOrg("amarelo", i.chave.replace("|*", "").replace("|", " → "), `${i.tipo} · ${i.motivo}`,
+      `<div class="acoes"><button class="btn sec" data-lib="${esc(i.chave.split("|")[0])}">Liberar</button></div>`)));
+  $("#corpoProblemas").innerHTML = probs.join("") || `<p class="dica">Nenhum problema aberto, nada isolado.</p>`;
+  $("#corpoDecisoes").innerHTML = d.decisoes.map(x => linhaOrg(x.resultado === "sucesso" ? "verde" : "azul", x.tratamento + " · " + (x.resultado || "em andamento"), x.explicacao)).join("")
+    || `<p class="dica">O cérebro ainda não precisou decidir nada.</p>`;
+}
+document.addEventListener("click", async e => {
+  const b = e.target.closest("[data-ok],[data-nao],[data-lib]"); if (!b) return;
+  const corpo = b.dataset.ok ? { acao: "autorizar", id: b.dataset.ok } : b.dataset.nao ? { acao: "negar", id: b.dataset.nao } : { acao: "liberar", modulo: b.dataset.lib };
+  b.disabled = true; const r = await api("/api/corpo", corpo); bolha(r.resposta, "sis"); carregarCorpo();
+});
+$("#corpoExame").onclick = async () => { $("#corpoExame").disabled = true; const r = await api("/api/corpo", { acao: "exame" }); bolha(r.resposta, "ele"); $("#corpoExame").disabled = false; carregarCorpo(); };
+setInterval(() => { if ($("#corpo").classList.contains("ativa")) carregarCorpo(); }, 10000);
+document.querySelector('nav [data-aba="corpo"]').addEventListener("click", carregarCorpo);
+
+/* ── chat ── */
+function bolha(texto, quem, extra) {
+  const d = document.createElement("div");
+  d.className = "msg " + quem; d.textContent = texto;
+  if (extra) { const s = document.createElement("small"); s.textContent = extra; d.appendChild(s); }
+  $("#chat").appendChild(d); $("#chat").scrollTop = 1e9; return d;
+}
+function estadoNucleo(e, txt) { $("#nucleo").className = e || ""; $("#status").textContent = txt; }
+
+async function enviar(texto) {
+  texto = (texto || "").trim(); if (!texto) return;
+  bolha(texto, "eu"); $("#entrada").value = "";
+  estadoNucleo("pensando", "pensando…");
+  try {
+    const r = await api("/api/chat", { texto });
+    const ferr = (r.ferramentas || []).length ? "usou: " + [...new Set(r.ferramentas)].join(", ") : "";
+    bolha(r.resposta, "ele", ferr);
+    if (r.erro === "chave") $("#boasvindas").style.display = "block";
+    falar(r.resposta);
+    carregar();
+  } catch (e) { bolha("Perdi a conexão com o JARVIS no Termux. Ele ainda está aberto?", "sis"); estadoNucleo("", "sem conexão"); }
+}
+$("#barra").onsubmit = e => { e.preventDefault(); enviar($("#entrada").value); };
+
+/* ── voz: falar ── */
+let vozes = [];
+function listarVozes() {
+  vozes = speechSynthesis.getVoices().filter(v => v.lang.toLowerCase().startsWith("pt"));
+  $("#cfgVoz").innerHTML = vozes.map((v, i) => `<option value="${i}">${v.name}</option>`).join("") || "<option>padrão do celular</option>";
+  $("#cfgVoz").value = ler("voz", "0");
+}
+if ("speechSynthesis" in window) { listarVozes(); speechSynthesis.onvoiceschanged = listarVozes; }
+function falar(texto) {
+  if (!vozOn || !("speechSynthesis" in window) || !texto) { if (maosLivres) setTimeout(ouvir, 400); else estadoNucleo("", "toque para falar"); return; }
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(texto.replace(/[*_#`]/g, ""));
+  u.lang = "pt-BR"; u.rate = parseFloat(ler("vel", "1.05"));
+  const v = vozes[parseInt(ler("voz", "0"))]; if (v) u.voice = v;
+  u.onstart = () => { falando = true; estadoNucleo("falando", "falando"); };
+  u.onend = u.onerror = () => { falando = false; estadoNucleo("", "toque para falar"); if (maosLivres) setTimeout(ouvir, 350); };
+  speechSynthesis.speak(u);
+}
+
+/* ── voz: ouvir ── */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+function ouvir() {
+  if (!SR) { bolha("Este navegador não reconhece voz. Use o Chrome, ou digite.", "sis"); return; }
+  if (ouvindo || falando) return;
+  reconhecedor = new SR(); reconhecedor.lang = "pt-BR"; reconhecedor.interimResults = true;
+  let final = "";
+  reconhecedor.onstart = () => { ouvindo = true; estadoNucleo("ouvindo", "ouvindo…"); };
+  reconhecedor.onresult = ev => {
+    let parcial = ""; final = "";
+    for (const r of ev.results) (r.isFinal ? (final += r[0].transcript) : (parcial += r[0].transcript));
+    $("#status").textContent = (final || parcial).slice(-60) || "ouvindo…";
+  };
+  reconhecedor.onerror = ev => { if (ev.error === "not-allowed") bolha("Permita o microfone para o Chrome (cadeado na barra de endereço).", "sis"); };
+  reconhecedor.onend = () => {
+    ouvindo = false;
+    const t = final.trim();
+    if (/^(pode parar|para de ouvir|chega)$/i.test(t)) { maosLivres = false; $("#optMaos").classList.remove("on"); estadoNucleo("", "toque para falar"); return; }
+    if (t && maosLivres && soJarvis) {            // 2.19: em mãos livres só responde se a frase tiver "Jarvis"
+      const m = t.toLowerCase().match(/(?:^|\s)(j[aá]rvis|jarves|jarvi|jarbas)[,.!?]?\s*(.*)$/);
+      if (!m) { setTimeout(ouvir, 250); return; }
+      if (!m[2].trim()) { falar("Sim, senhor?"); return; }
+      enviar(m[2].trim()); return;
+    }
+    if (t) enviar(t); else if (maosLivres) setTimeout(ouvir, 300); else estadoNucleo("", "toque para falar");
+  };
+  reconhecedor.start();
+}
+$("#nucleo").onclick = () => {
+  if (falando) { speechSynthesis.cancel(); return; }
+  if (ouvindo) { reconhecedor.stop(); return; }
+  ouvir();
+};
+$("#optMaos").onclick = () => { maosLivres = !maosLivres; $("#optMaos").classList.toggle("on", maosLivres); if (maosLivres) ouvir(); };
+$("#optJarvis").classList.toggle("on", soJarvis);
+$("#optJarvis").onclick = () => { soJarvis = !soJarvis; guardar("soJarvis", soJarvis ? "1" : "0"); $("#optJarvis").classList.toggle("on", soJarvis);
+  if (soJarvis && !maosLivres) $("#optMaos").click(); };
+$("#optVoz").onclick = () => { vozOn = !vozOn; guardar("vozOn", vozOn ? "1" : "0"); $("#optVoz").classList.toggle("on", vozOn);
+  $("#optVoz").textContent = vozOn ? "voz ligada" : "voz desligada"; if (!vozOn) speechSynthesis.cancel(); };
+$("#optLimpar").onclick = async () => { await api("/api/esquecer", {}); $("#chat").innerHTML = ""; bolha("Conversa nova.", "sis"); };
+
+/* ── modos ── */
+function desenharModos() {
+  const q = $("#buscaModos").value.toLowerCase();
+  const lista = E.modos.filter(m => !q || (m.id + " " + m.titulo + " " + m.jeito).toLowerCase().includes(q));
+  $("#gradeModos").innerHTML = "";
+  for (const m of lista) {
+    const b = document.createElement("button");
+    b.className = "card" + (m.id === E.modo ? " on" : "");
+    b.innerHTML = `<b></b><span></span>`; b.querySelector("b").textContent = m.titulo + (m.proprio ? " ★" : "");
+    b.querySelector("span").textContent = m.jeito;
+    b.onclick = () => trocarModo(m.id === E.modo ? null : m.id);
+    $("#gradeModos").appendChild(b);
+  }
+  $("#nModos").textContent = `(${E.modos.length})`;
+  const atual = E.modos.find(m => m.id === E.modo);
+  $("#modoAtual").textContent = atual ? atual.titulo : "Normal";
+  $("#modoJeito").textContent = atual ? atual.jeito : "Sem modo especial.";
+  $("#modoChip").textContent = atual ? "modo " + atual.titulo.toLowerCase() : "modo normal";
+  $("#modoChip").classList.toggle("on", !!atual);
+}
+async function trocarModo(id) {
+  const r = await api("/api/modo", id ? { acao: "entrar", modo: id } : { acao: "sair" });
+  E.modo = r.modo; desenharModos(); bolha(r.resposta, "sis"); falar(r.resposta.split(".")[0] + ".");
+}
+$("#buscaModos").oninput = desenharModos;
+$("#sairModo").onclick = () => trocarModo(null);
+$("#modoChip").onclick = () => document.querySelector('nav [data-aba="modos"]').click();
+$("#criarModo").onclick = async () => {
+  const r = await api("/api/modo_criar", { modo: $("#novoNome").value, descricao: $("#novoJeito").value, passos: $("#novoPassos").value });
+  alertaTela(r.resposta); carregar();
+};
+
+/* ── plugins ── */
+function desenharPlugins() {
+  const q = $("#buscaPlugins").value.toLowerCase();
+  const lista = E.plugins.filter(p => !q || (p.nome + " " + p.resumo).toLowerCase().includes(q));
+  $("#listaPlugins").innerHTML = "";
+  for (const p of lista.slice(0, 400)) {
+    const d = document.createElement("div"); d.className = "linha";
+    d.innerHTML = `<div class="t"><b></b><span></span></div><button class="pill">usar</button><button class="tg"></button>`;
+    d.querySelector("b").textContent = p.nome.replace(/_/g, " ");
+    d.querySelector("span").textContent = p.valido ? p.resumo : "não carregou: " + p.erro;
+    const tg = d.querySelector(".tg"); tg.classList.toggle("on", p.ligado); tg.disabled = !p.valido;
+    tg.onclick = async () => { p.ligado = !p.ligado; tg.classList.toggle("on", p.ligado); await api("/api/plugin", { nome: p.nome, ligado: p.ligado }); };
+    d.querySelector(".pill").onclick = () => { document.querySelector('nav [data-aba="conversa"]').click();
+      $("#entrada").value = `Use o plugin ${p.nome.replace(/_/g, " ")} para `; $("#entrada").focus(); };
+    $("#listaPlugins").appendChild(d);
+  }
+  $("#nPlugins").textContent = `(${E.total_plugins} prontos)`;
+}
+$("#buscaPlugins").oninput = desenharPlugins;
+
+/* ── avisos (timers, cartões, falas dos plugins) ── */
+function alertaTela(texto, titulo) {
+  const box = $("#listaAvisos"); if (box.querySelector(".dica")) box.innerHTML = "";
+  const d = document.createElement("div"); d.className = "aviso";
+  d.innerHTML = `<time></time><b></b><div></div>`;
+  d.querySelector("time").textContent = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  d.querySelector("b").textContent = titulo || "J.A.R.V.I.S"; d.querySelector("div").textContent = texto;
+  box.prepend(d);
+}
+async function buscarEventos() {
+  try {
+    const r = await api("/api/eventos?desde=" + ultimoEvento + (SENHA ? "&s=" + SENHA : ""));
+    for (const e of r.eventos) {
+      if (ultimoEvento === -1) continue;
+      if (e.tipo === "fala") { bolha(e.texto, "ele", "aviso"); alertaTela(e.texto, "Aviso"); if (!ouvindo) falar(e.texto);
+        if (navigator.vibrate) navigator.vibrate(200); }
+      if (e.tipo === "cartao") alertaTela(e.texto, e.titulo);
+    }
+    ultimoEvento = r.ultimo;
+  } catch (e) {}
+}
+
+/* ── ajustes ── */
+$("#cfgVel").value = ler("vel", "1.05"); $("#velTxt").textContent = $("#cfgVel").value;
+$("#cfgVel").oninput = () => { guardar("vel", $("#cfgVel").value); $("#velTxt").textContent = $("#cfgVel").value; };
+$("#cfgVoz").onchange = () => guardar("voz", $("#cfgVoz").value);
+$("#testarVoz").onclick = () => falar("Às suas ordens, senhor. Todos os sistemas no ar.");
+$("#salvar").onclick = async () => {
+  const d = { usuario: $("#cfgNome").value, modelo: $("#cfgModelo").value };
+  if ($("#cfgChave").value.trim()) d.chave = $("#cfgChave").value.trim();
+  await api("/api/config", d); $("#cfgChave").value = ""; alertaTela("Ajustes salvos."); carregar();
+  falar("Ajustes salvos, senhor.");
+};
+
+async function carregar() {
+  try {
+    E = await api("/api/estado" + (SENHA ? "?s=" + SENHA : ""));
+    desenharModos(); desenharPlugins();
+    $("#boasvindas").style.display = E.configurado ? "none" : "block";
+    if (document.activeElement !== $("#cfgNome")) $("#cfgNome").value = E.usuario || "";
+    $("#cfgModelo").value = E.modelo && [...$("#cfgModelo").options].some(o => o.value === E.modelo) ? E.modelo : "";
+    $("#sobre").textContent = `J.A.R.V.I.S BR 3.9 no celular · ${E.total_plugins} plugins · ${E.modos.length} modos · ` +
+      (E.termux ? "rodando no Termux" : "rodando no computador");
+  } catch (e) { $("#status").textContent = "sem conexão"; }
+}
+
+(async () => {
+  $("#optVoz").classList.toggle("on", vozOn); $("#optVoz").textContent = vozOn ? "voz ligada" : "voz desligada";
+  const aba = ler("aba", "conversa"); const b = document.querySelector(`nav [data-aba="${aba}"]`); if (b) b.click();
+  await carregar();
+  const r = await api("/api/eventos?desde=0" + (SENHA ? "&s=" + SENHA : "")); ultimoEvento = r.ultimo;  // não repete avisos velhos
+  bolha(E.configurado ? `Às suas ordens${E.usuario ? ", " + E.usuario : ""}. ${E.total_plugins} plugins e ${E.modos.length} modos prontos.`
+                      : "Olá! Cole a sua chave do Gemini em Ajustes e eu fico pronto.", "ele");
+  setInterval(buscarEventos, 2000);
+})();
+</script>
+</body>
+</html>

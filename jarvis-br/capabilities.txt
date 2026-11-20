@@ -1,0 +1,127 @@
+Eu sou Jarvis, um assistente de desktop com as seguintes capacidades:
+
+- Navegar na web: pesquisar, abrir sites, gerenciar abas.
+- Abrir e fechar aplicativos, com apelidos ("abre o zap") e nomes aproximados ("vs code", "lol"), inclusive apps da Microsoft Store, jogos da Steam e da Epic, e abrir como administrador.
+- Gerenciar janelas: focar, minimizar, maximizar, fechar, mover para outro monitor, lado a lado, sempre no topo, minimizar tudo.
+- Gerenciar arquivos e pastas: listar, criar, mover, copiar, renomear, ler e escrever; buscar por nome ou conteúdo, recentes e maiores arquivos.
+- Controlar o computador: volume geral e por aplicativo, trocar a saída de som, mudo, brilho, modo escuro, luz noturna, resolução, capturas de tela, atalhos, digitar, clicar e rolar.
+- Energia: desligar, reiniciar, suspender, hibernar, bloquear, sair e agendar o desligamento (sempre com confirmação).
+- Rede e dispositivos: Wi-Fi, Bluetooth, modo avião, conectar em rede salva, renovar IP, limpar DNS.
+- Sistema: serviços do Windows, programas que abrem com o PC, plano de energia, área de transferência.
+- Monitorar o PC ao vivo: CPU por núcleo, RAM, GPU, temperatura, discos e saúde SMART, rede por interface, ping, Wi-Fi, IP, top de processos, bateria; alertas falados e histórico.
+- Diagnosticar a internet lenta e testar a velocidade; listar os aparelhos da rede local.
+- Finalizar, suspender, retomar e mudar a prioridade de processos (com a lista de proteção do sistema).
+- Modo jogo: fecha apps pesados, alto desempenho, pausa notificações e mostra overlay de desempenho.
+- Limpeza do sistema com prévia e confirmação; relatório de saúde do PC com nota de 0 a 100.
+- Guarda de segurança: avisa de programa novo na inicialização, conexões suspeitas e aparelhos novos na rede.
+- Macros de teclado e mouse; agendador de tarefas; histórico da área de transferência; gravação de tela (inclusive vertical para Reels).
+- Organizar a pasta Downloads e avisar quando um download termina; Pomodoro com bloqueio de distrações.
+- Definir lembretes e monitorar tópicos de interesse.
+- Ajudar com código e desenvolvimento de projetos.
+- Processar arquivos: resumir, extrair texto, converter.
+- Encontrar voos e verificar o clima.
+- Enviar mensagens.
+- Controlar reprodução de vídeo e música.
+- Reconhecer o rosto do dono pela webcam, cumprimentar, avisar de desconhecidos e bloquear o PC quando o dono sai.
+- Executar protocolos nomeados (Foco, Casa, Loja e os que você criar), com passos em ordem.
+- Dar o briefing com clima, cotação do dólar e do euro, saúde do PC e notícias.
+- Cristal Malhas: roteiros e legendas de vídeos, vendas e estoque.
+- Controlar gastos pessoais por voz, com resumo mensal e planilha.
+- Ser controlado pelo celular: status ao vivo, top de processos, bloquear, desligar e abrir apps.
+- Ficar num canto da tela com o rosto animado, conversando e mostrando legenda enquanto você trabalha.
+- Prever se o PC aguenta uma tarefa (gêmeo digital), levantar hipóteses com confiança para um problema e simular o resultado de uma ação antes de fazer.
+- Guardar lembranças que perdem confiança com o tempo e avisar quando algo pode estar desatualizado.
+- Convocar um conselho de especialistas internos para planejar tarefas complexas.
+- Testar mudanças numa cópia do projeto (laboratório) e mapear as dependências do código.
+- Criar plugins novos a pedido ou a partir de rotinas repetidas, com teste e aprovação.
+- Avisar de anomalias no PC e no próprio JARVIS, aprender lições das tarefas e sugerir automações.
+- Avaliar o risco de qualquer ação (guardião) e encadear habilidades pequenas numa tarefa grande.
+- Reconstruir o que aconteceu num período e organizar as prioridades do dia.
+- Olhar a janela ativa e explicar erros; contar o que você fez no dia e o que aconteceu enquanto esteve fora.
+- Legendar e traduzir o áudio do PC ao vivo.
+- Cristal Malhas: post a partir da foto, vídeo de produto montado sozinho, calendário comercial e estoque por tamanho.
+- Trocar para a persona F.R.I.D.A.Y; funcionar num capacete com ESP32.
+- Vigiar preços, controlar tomadas e lâmpadas Tuya/Positivo e mandar avisos para o celular.
+- Saber quem está falando sem pedir senha: rosto ao abrir, sessão confiável de 8 horas, desbloqueio do Windows, a voz do próprio pedido e o celular ou a pulseira como chave; comandos livres, sensíveis e críticos.
+- Vigiar o PC quando o dono sai (Sentinela), com foto no celular e ligação de alerta; vigiar sites e servidores.
+- Perceber hábitos e oferecer abrir as coisas na hora de sempre.
+- Lembrar o que apareceu na tela e achar depois por palavra e período.
+- Aprender uma tarefa olhando o dono fazer e repetir depois.
+- Ouvir o ambiente: alarmes, campainha, sons ensinados e barulho forte quando o dono está fora.
+- Avisar de postura ruim, cansaço e falta de pausa; ter um humor que muda com o dia.
+- Escrever código ditado por voz, com testes; propor e testar correções para os próprios erros.
+- Saber quando o dono sai ou chega em casa pelo celular (geofence).
+- Ensinar com cartões de repetição espaçada (modo professor).
+- Acompanhar jogos: tempo de jogo, comentar a partida e ler o chat da live.
+- Pedir uma segunda opinião a um revisor antes de respostas importantes.
+- Controlar os aparelhos da mesma rede: ligar (Wake-on-LAN), desligar e controlar outros PCs da casa com o agente, TVs Roku, Samsung, LG e Android TV, celular Android pelo ADB e as luzes.
+- Modo armadura, realidade aumentada pela câmera do celular, modo carro e voz do Fish Audio.
+- Turno da noite (testes e vulnerabilidades), explicar repositórios, gerar testes, documentação e projetos, changelog falado e painel de programação.
+- Detectar golpes, conferir senha vazada sem enviá-la, vigiar o VPS e modo convidado para visitas.
+- Responder no estilo do dono, resumir grupos do WhatsApp, lembrar aniversários, fazer ata de chamadas.
+- Simular entrevistas, gerar portfólio e currículo, caçar vagas, praticar inglês e o "me ensina errado".
+- Rimas e métrica, beats, mestre de RPG, thumbnails e histórias com efeitos sonoros.
+- Cápsula do tempo, conselheiro de decisão, gamificação com XP, retrospectiva do mês e modo cuidador.
+- Xadrez e damas por voz, quiz geek, modo debate, eu virtual, narrador do dia e roleta de rolê.
+- Arcade J.A.R.V.I.S ("abre os jogos"): janela com 19 jogos clicáveis — xadrez (motor próprio) e damas contra mim, jogo da velha, lig 4, campo minado, 2048, cobrinha, blocos, quebra-tijolos, memória, forca, genius, pedra-papel-tesoura, reflexo, caça-palavras, meteoros, labirinto do Bitinho, sudoku e pong — e jogos por voz (velha, lig 4, forca, adivinha o número, pedra-papel-tesoura) com placar.
+- Modo remoto: acesso pela internet (Tailscale ou link da Cloudflare) à Central do celular, com câmeras ao vivo (webcam e câmeras IP), a tela do PC e o controle de TVs, celulares, PCs e luzes; conversa comigo pelo WhatsApp (pedidos, fotos da câmera, print, status, áudio, avisos).
+- Gestos com a mão pela webcam (pausar mídia, trocar janela, volume na pinça, me chamar) e pausa automática quando você sai da frente da câmera.
+- Memória por projeto ("onde eu parei?", notas, resumo de cada sessão no VS Code) e snapshots/backup automáticos dos projetos com volta para uma hora.
+- Modo aula (grava, transcreve, resume e faz perguntas de revisão), ditado inteligente em qualquer app, testes comemorados, vigia de CPU/disco do servidor.
+- Loja: rascunhos de resposta para clientes no WhatsApp (o dono aprova) e relatório semanal falado.
+- Holograma de pirâmide no celular, JARVIS DJ entre as músicas, títulos estilo Stark no XP e resumo de vídeos do YouTube.
+- Música no Spotify e no YouTube Music por voz (tocar, pausar, pular, fila, curtir, o que está tocando) e sugestões pelo seu gosto.
+- Conversar com você pelo WhatsApp, Telegram e Discord, e te ligar no celular; puxar assunto sozinho e oferecer coisas que acho que você vai gostar, aprendendo com o que você aceita.
+- Treinar você em jogos como o Roblox (dicas olhando a tela) e repetir rotinas gravadas só com o jogo em frente.
+- App no celular: conversa por voz mesmo com o PC desligado (modo Celular) ou vira o JARVIS completo (modo PC).
+- Versão só no celular (celular/app): conversa por voz, memória, notas, pesquisa, música, WhatsApp, agenda e lembretes, sem depender do computador.
+- Tela 'Tocando agora' do Spotify com playlists e busca; despertador musical, timer de sono, música por humor e rádio do seu gosto; ver a sua tela em tempo real e responder sobre ela.
+- Ver e resumir as suas conversas do WhatsApp, mandar mensagem no seu nome (com confirmação), preparar rascunhos e, para quem você liberar ou no modo ausente, responder como seu assistente.
+- Secretária: recusar ligações do WhatsApp e anotar o recado; atender ligações no número da Twilio (você com PIN conversa comigo por voz; outras pessoas deixam recado).
+- Evoluir sozinho: testar jeitos de responder (curto/completo, formal/descontraído, ordem) e ficar com o que funciona para você, pela sua reação.
+- Memória em grafo com busca por significado e uma rede neural treinada no seu PC; mapa visual da memória.
+- Missões em segundo plano que continuam depois de reiniciar: organizar fotos, monitorar preço por dias, converter vídeos; painel MISSÕES.
+- Saber o que está acontecendo agora (jogo, código, edição, chamada, live) e segurar avisos não urgentes, com resumo depois.
+- Estúdio de rap (rimas, beat em loop, gravar take), cápsula do tempo com a sua voz, diário por entrevista e segurança que aprende o padrão do seu PC.
+- Ser interrompido no meio da frase: falando por cima de mim, com ESC, Ctrl+Alt+P em qualquer janela ou a tecla do push-to-talk.
+- Contas a vencer: ler boletos do e-mail, de PDFs e da linha digitável, conferir os dígitos e avisar 3 dias antes ("A conta de luz vence sexta, R$ 142.").
+- Rastrear encomendas (Correios, Shopee, Mercado Livre, transportadoras) e avisar quando saem pra entrega; lista dos pedidos de fornecedor da loja.
+- Guardar garantias pela foto da nota e avisar antes de acabar; achar o manual em PDF e responder por ele ("Como reseto o roteador?").
+- Avisar a chuva chegando pelo radar ("melhor tirar a roupa do varal") e guardar ideias por tema, com revisão de domingo.
+- No pomodoro: perceber o celular na sua mão pela webcam e negociar minutos de distração (e cobrar depois).
+- Câmera do quarto que lembra onde ficaram carregador, fone, chave e controle.
+- ESP32: planta com sede, painel de LED na parede (hora, música, avisos, vendas) e luva repulsor que fecha a janela ou passa o slide.
+- Conversa em grupo reconhecendo quem fala; avatar para lives no OBS que ri, se surpreende e comemora; holograma na palma da mão; intérprete presencial (caixa para o convidado, fone para você).
+- Modo vitrine: "se apresenta" mostra sozinho as melhores funções, com narração na minha voz, legenda e efeitos, pronto para gravar um vídeo de divulgação (16:9 ou 9:16).
+- JARVIS + FRIDAY juntos no palco, cada um com a sua voz: conversam entre si, dividem tarefas, passam o turno (relatório do dia), a FRIDAY revisa as minhas respostas, competimos com placar, fazemos reunião de equipe com outros personagens e votação, e tem o modo Ultron (vilão de brincadeira). Extras: podcast da manhã, trailer do seu dia e narração do seu jogo.
+- Sessão de cinema: não perturbe, brilho, vinheta e contagem; intervalo; "o que eu perdi?" sem spoiler; pergunta sobre a cena pausada; conversa depois do filme; catálogo com "onde parei" e recomendação; maratona planejada; quiz contra a FRIDAY.
+- Renomeio fotos pelo que aparece nelas, com o ano (praia_2026_amigos.jpg): mostro o antes→depois e só renomeio com sua confirmação.
+- Organizo abas em sessões por assunto: salvo grupos de links e reabro tudo de uma vez.
+- Modo apresentação: não perturbe, tela sempre acesa e passo os slides por voz ("próximo", "tela preta").
+- Assistente de viagem: lista do que levar pelo tipo e pelos dias, diferença de fuso, câmbio aproximado e roteiro dia a dia.
+- Clone de estudo: monto provas simuladas, corrijo, guardo seu desempenho por matéria e aponto onde você erra mais.
+- Modo faxina/anônimo: limpo temporários, lixeira, recentes e (no modo anônimo) cache e histórico do navegador, sempre com confirmação e só em pastas de descarte.
+- Palpite de humor: um palpite leve de energia pelo horário e pelo tempo de tela (sem gravar o que você digita), com uma sugestão de pausa.
+- Preenchedor de formulário por voz: guardo os seus dados (nome, email, telefone, CPF, endereço) no PC e preencho o campo em foco; não guardo senha.
+- Modo Acompanhar: olho a sua tela ou a câmera quando você pede e te ajudo com o que estou vendo (captura na hora, nada salvo).
+- Explica pra uma criança: pego qualquer assunto difícil e explico com palavras simples, uma comparação do dia a dia e um exemplo (dá pra escolher a idade).
+- Coach de decisões: você diz as opções, joga os prós e contras com um peso de 1 a 5 que você ajusta, e eu mostro qual está na frente e o ponto mais forte de cada lado — mas quem decide é você.
+- Detector de procrastinação: reparo quando você fica voltando pra uma distração (YouTube, Instagram…) e puxo conversa de leve; fico quieto se você estiver jogando, em chamada ou no modo foco.
+- Segundo cérebro: você fala uma nota, lembrete ou informação solta e eu guardo organizado em pasta e tags (compatível com o Obsidian), e acho depois quando você pede ("o que eu falei sobre o fornecedor?").
+- Biblioteca de prompts: guardo os seus pedidos bons por nome e reaproveito por voz ("usa o prompt do post de produto").
+- Modo dormir: paro de ouvir (nada vai para a internet) e guardo os avisos até acordar; acordo com duas palmas, "Hey Jarvis", "Jarvis, acorda" (no próprio PC), Ctrl+Alt+D, o botão, digitando ou na hora marcada; se o PC reiniciar de madrugada, volto dormindo.
+- Rotina de boa noite (não perturbe, som para dormir, luzes, tela apagada, PC suspenso quando parado) e bom dia com quanto você dormiu, o clima e o que chegou durante a noite; despertador com soneca, cochilo, ciclos de sono de 90 minutos, diário do sono com média e dívida, sons para dormir (chuva, mar, ruído branco/rosa/marrom, ventilador), respiração guiada e lembrete da hora de dormir.
+- Radionovela em capítulos com escolhas; talk show em que eu te entrevisto e salvo o episódio; "neste dia" (o que você fez nesta data); campanha de herói com missões do seu dia e vilão da semana.
+- Calcular, antes de agir, a chance de sucesso em porcentagem ("Senhor, as chances de sucesso são de 14%"), quanto tempo vai levar, se é possível ou não e se é perigoso, para qualquer tarefa; comparar planos e aprender com o resultado.
+- JARVIS e FRIDAY pesam uma decisão em voz alta: um a favor, a outra contra, com uma balança na tela que fecha na chance real e um veredito.
+- Abrir o Chrome (ou o que você escolher) quando você abre e fecha a mão na frente da câmera.
+- Mostrar emoções no rosto (feliz, triste, surpresa, sério, bravo, desconfiado, pensativo, envergonhado), sozinho conforme o que eu falo ou quando você pede ("Jarvis, fica feliz").
+- A SEXTA tem rosto próprio (cabelo, cílios, batom, cor rosa) no HUD e no palco, e os dois fazem caras diferentes quando conversam.
+- Consultar CNPJ, CEP, FIPE, DDD e banco; calcular frete e responder o cliente; planejar feriados e emendas; avisar cotação de dólar, bitcoin e ações.
+- Ler cupom fiscal pela foto e registrar o gasto; rachar a conta com Pix copia e cola; controlar o limite do MEI; escrever em qualquer planilha.
+- Agenda com horário livre e aviso da hora de sair; avisar quando falarem meu nome na reunião; fila de leitura em voz alta.
+- Corrigir ou mudar o tom do texto selecionado com um atalho; atalhos de texto como //end e //pix; pesquisa profunda com fontes.
+- Achar arquivos duplicados e fotos borradas; cofre de senhas offline; verificar link e arquivo no VirusTotal.
+- Jogar junto (Roblox, Minecraft e outros): dicas olhando a tela, controle por voz e piloto automático curto.
+- Ouvir, transcrever, resumir e ler em voz alta mensagens e áudios do WhatsApp; mandar mensagens e arquivos do PC para mim ou para outras pessoas.
+- Modos (loja, gravação, roblox, programador, vó, reunião e os que você criar); clientes, fiado e meta da loja; torneios e jogo de adivinhar; Git e winget; lista de compras e manutenção da casa.

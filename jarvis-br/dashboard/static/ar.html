@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JARVIS · Realidade aumentada</title>
+  <!-- Fork PT-BR 1.6: câmera do celular com sobreposição holográfica.
+       Os objetos são achados NO PRÓPRIO CELULAR (TensorFlow.js + COCO-SSD). O botão
+       "Perguntar ao JARVIS" manda só aquela foto para o PC, que pergunta à IA.
+       A câmera exige o endereço HTTPS do painel (o navegador bloqueia em http://). -->
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { background: #000; color: #d8f6ff; font-family: 'Segoe UI', -apple-system, sans-serif; height: 100%; overflow: hidden; }
+    #palco { position: fixed; inset: 0; }
+    video, canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+    header { position: fixed; top: 0; left: 0; right: 0; display: flex; gap: 10px; align-items: center; padding: 12px 16px;
+      background: linear-gradient(#000a, transparent); z-index: 3; }
+    header b { letter-spacing: 5px; color: #38d6ff; font-size: 13px; flex: 1; }
+    header a { color: #9fc4d4; text-decoration: none; font-size: 13px; border: 1px solid #38d6ff44; padding: 6px 10px; border-radius: 10px; }
+    #estado { position: fixed; top: 52px; left: 16px; font-size: 11px; color: #9fc4d4; z-index: 3; letter-spacing: 1px; }
+    #resposta { position: fixed; left: 16px; right: 16px; bottom: 96px; z-index: 3; background: #04121bcc; border: 1px solid #38d6ff66;
+      border-radius: 12px; padding: 12px; font-size: 15px; line-height: 1.4; display: none; }
+    #perguntar { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); z-index: 3; border: 2px solid #38d6ff;
+      background: #38d6ff22; color: #d8f6ff; border-radius: 40px; padding: 16px 26px; font-size: 16px; letter-spacing: 1px; }
+    #perguntar:disabled { opacity: .5; }
+  </style>
+</head>
+<body>
+  <div id="palco"><video id="cam" playsinline muted autoplay></video><canvas id="hud"></canvas></div>
+  <header><b>J.A.R.V.I.S · AR</b><a href="/">‹ Voltar</a></header>
+  <div id="estado">iniciando câmera…</div>
+  <div id="resposta"></div>
+  <button id="perguntar">◎ Perguntar ao JARVIS</button>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
+  <script>
+    const token = sessionStorage.getItem('jarvis_token');
+    if (!token) location.replace('/login');
+    const PT = {person:'pessoa', bicycle:'bicicleta', car:'carro', motorcycle:'moto', bus:'ônibus', truck:'caminhão',
+      'traffic light':'semáforo', dog:'cachorro', cat:'gato', bird:'pássaro', backpack:'mochila', umbrella:'guarda-chuva',
+      handbag:'bolsa', bottle:'garrafa', cup:'copo', fork:'garfo', knife:'faca', spoon:'colher', bowl:'tigela', banana:'banana',
+      apple:'maçã', orange:'laranja', chair:'cadeira', couch:'sofá', 'potted plant':'planta', bed:'cama', 'dining table':'mesa',
+      toilet:'vaso sanitário', tv:'TV', laptop:'notebook', mouse:'mouse', remote:'controle', keyboard:'teclado',
+      'cell phone':'celular', microwave:'micro-ondas', oven:'forno', sink:'pia', refrigerator:'geladeira', book:'livro',
+      clock:'relógio', vase:'vaso', scissors:'tesoura', 'teddy bear':'ursinho', 'hair drier':'secador', toothbrush:'escova de dente',
+      'sports ball':'bola', tie:'gravata', suitcase:'mala', bench:'banco', pizza:'pizza', cake:'bolo', sandwich:'sanduíche'};
+    const video = document.getElementById('cam'), hud = document.getElementById('hud'), ctx = hud.getContext('2d');
+    const estado = document.getElementById('estado'), resp = document.getElementById('resposta'), btn = document.getElementById('perguntar');
+    let modelo = null;
+    async function iniciar() {
+      if (!window.isSecureContext) { estado.textContent = 'Abra pelo endereço HTTPS do painel para usar a câmera.'; return; }
+      try {
+        video.srcObject = await navigator.mediaDevices.getUserMedia({video: {facingMode: 'environment'}, audio: false});
+      } catch (e) { estado.textContent = 'Sem permissão para a câmera.'; return; }
+      estado.textContent = 'carregando o detector…';
+      try { modelo = await cocoSsd.load({base: 'lite_mobilenet_v2'}); estado.textContent = 'VARREDURA ATIVA'; laco(); }
+      catch (e) { estado.textContent = 'Detector indisponível (sem internet?). O botão ainda funciona.'; }
+    }
+    function desenhar(objs) {
+      const w = hud.width = hud.clientWidth * devicePixelRatio, h = hud.height = hud.clientHeight * devicePixelRatio;
+      const vw = video.videoWidth, vh = video.videoHeight; if (!vw) return;
+      const esc = Math.max(w / vw, h / vh), ox = (w - vw * esc) / 2, oy = (h - vh * esc) / 2;
+      ctx.clearRect(0, 0, w, h);
+      ctx.lineWidth = 2 * devicePixelRatio; ctx.font = `${13 * devicePixelRatio}px Segoe UI, sans-serif`;
+      for (const o of objs) {
+        const [x, y, bw, bh] = o.bbox.map((v, i) => v * esc + (i === 0 ? ox : i === 1 ? oy : 0));
+        const c = 14 * devicePixelRatio;
+        ctx.strokeStyle = '#38d6ff'; ctx.shadowColor = '#38d6ff'; ctx.shadowBlur = 12;
+        ctx.beginPath();
+        for (const [px, py, dx, dy] of [[x, y, 1, 1], [x + bw, y, -1, 1], [x, y + bh, 1, -1], [x + bw, y + bh, -1, -1]]) {
+          ctx.moveTo(px, py + dy * c); ctx.lineTo(px, py); ctx.lineTo(px + dx * c, py);
+        }
+        ctx.stroke(); ctx.shadowBlur = 0;
+        const rotulo = `${(PT[o.class] || o.class).toUpperCase()} · ${Math.round(o.score * 100)}%`;
+        ctx.fillStyle = '#04121bcc'; ctx.fillRect(x, y - 22 * devicePixelRatio, ctx.measureText(rotulo).width + 12 * devicePixelRatio, 20 * devicePixelRatio);
+        ctx.fillStyle = '#d8f6ff'; ctx.fillText(rotulo, x + 6 * devicePixelRatio, y - 7 * devicePixelRatio);
+      }
+    }
+    async function laco() {
+      if (modelo && video.readyState >= 2) {
+        try { desenhar((await modelo.detect(video, 8)).filter(o => o.score > 0.5)); } catch (e) {}
+      }
+      setTimeout(() => requestAnimationFrame(laco), 120);
+    }
+    btn.onclick = async () => {
+      if (!video.videoWidth) return;
+      btn.disabled = true; resp.style.display = 'block'; resp.textContent = 'Analisando…';
+      const c = document.createElement('canvas'), lado = 768, esc = lado / Math.max(video.videoWidth, video.videoHeight);
+      c.width = video.videoWidth * esc; c.height = video.videoHeight * esc;
+      c.getContext('2d').drawImage(video, 0, 0, c.width, c.height);
+      const imagem = c.toDataURL('image/jpeg', 0.8).split(',')[1];
+      try {
+        const r = await fetch('/api/ar/perguntar', {method: 'POST', body: JSON.stringify({imagem}),
+          headers: {'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json'}});
+        const d = await r.json();
+        resp.textContent = d.texto || d.erro || 'Sem resposta.';
+        try { const u = new SpeechSynthesisUtterance(resp.textContent); u.lang = 'pt-BR'; speechSynthesis.speak(u); } catch (e) {}
+      } catch (e) { resp.textContent = 'Não consegui falar com o PC.'; }
+      btn.disabled = false;
+    };
+    iniciar();
+  </script>
+</body>
+</html>

@@ -1,0 +1,1306 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arcade J.A.R.V.I.S</title>
+<!-- Fork PT-BR 1.7: Arcade. Tudo offline; xadrez e damas usam o motor em Python pelo servidor local do JARVIS.
+     2.5: + caça-palavras, meteoros, labirinto do Bitinho (personagem original), sudoku e pong. -->
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#04070d;--hud:#38d6ff;--hud2:rgba(56,214,255,.18);--hud3:rgba(56,214,255,.07);--texto:#d8f6ff;
+ --mudo:#5f8597;--ouro:#ffb547;--verm:#ff5a5a;--verde:#3dffa0;--roxo:#b47cff}
+html,body{background:radial-gradient(circle at 50% 0%,#0b1a26 0%,var(--bg) 65%) fixed;color:var(--texto);
+ font-family:'Segoe UI',-apple-system,sans-serif;min-height:100%}
+body{min-height:100vh;user-select:none;-webkit-user-select:none}
+header{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--hud3)}
+.titulo{letter-spacing:6px;font-weight:700;color:var(--hud);font-size:15px;flex:1;text-shadow:0 0 14px rgba(56,214,255,.5)}
+button{font:inherit;color:var(--texto);background:var(--hud3);border:1px solid var(--hud2);border-radius:10px;
+ padding:7px 12px;cursor:pointer;transition:.15s}
+button:hover{border-color:var(--hud);box-shadow:0 0 12px rgba(56,214,255,.25)}
+button.ativo{background:rgba(56,214,255,.22);border-color:var(--hud)}
+select{font:inherit;color:var(--texto);background:#08131c;border:1px solid var(--hud2);border-radius:10px;padding:6px 8px}
+main{padding:18px;max-width:1100px;margin:0 auto}
+#menu{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:14px}
+.cartao{border:1px solid var(--hud2);border-radius:16px;padding:16px;background:linear-gradient(160deg,rgba(56,214,255,.08),rgba(56,214,255,.02));
+ cursor:pointer;transition:.18s;position:relative;overflow:hidden}
+.cartao:hover{transform:translateY(-3px);border-color:var(--hud);box-shadow:0 6px 24px rgba(56,214,255,.18)}
+.cartao .ic{font-size:38px;line-height:1}
+.cartao h3{margin-top:10px;font-size:15px;letter-spacing:1px}
+.cartao p{font-size:12px;color:var(--mudo);margin-top:4px;line-height:1.35}
+.cartao .rec{position:absolute;top:10px;right:12px;font-size:11px;color:var(--ouro)}
+#jogo{display:none}
+.barra{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:14px}
+.barra h2{font-size:17px;letter-spacing:2px;color:var(--hud);margin-right:auto}
+#status{min-height:24px;margin:4px 0 12px;color:var(--texto);font-size:15px}
+#status.bom{color:var(--verde)} #status.ruim{color:var(--verm)} #status.aviso{color:var(--ouro)}
+#area{display:flex;flex-wrap:wrap;gap:18px;align-items:flex-start;justify-content:center}
+.lado{min-width:200px;max-width:280px;font-size:13px;color:var(--mudo);line-height:1.55}
+.lado b{color:var(--texto)}
+canvas{background:#050c13;border:1px solid var(--hud2);border-radius:12px;touch-action:none;max-width:100%}
+/* tabuleiros */
+.tab8{display:grid;grid-template-columns:repeat(8,1fr);grid-template-rows:repeat(8,1fr);width:min(88vw,560px);aspect-ratio:1;border:2px solid var(--hud2);
+ border-radius:8px;overflow:hidden;box-shadow:0 0 30px rgba(56,214,255,.12)}
+.tab8>div{min-width:0;min-height:0;overflow:hidden;display:flex;align-items:center;justify-content:center;position:relative;cursor:pointer;font-size:min(8.6vw,52px);line-height:1}
+.cl{background:#1b3242}.es{background:#0d1c27}
+.tab8 .sel{box-shadow:inset 0 0 0 3px var(--hud)}
+.tab8 .ult{background:#2d4a3c}
+.tab8 .alvo::after{content:"";width:28%;height:28%;border-radius:50%;background:rgba(56,214,255,.5);position:absolute}
+.tab8 .alvo.cap::after{width:86%;height:86%;background:none;border:3px solid rgba(56,214,255,.6)}
+.tab8 .xq{background:radial-gradient(circle,#ff5a5a 0%,transparent 75%)}
+.tab8 .coord{position:absolute;font-size:10px;color:var(--mudo);left:3px;bottom:2px;pointer-events:none}
+.pb{color:#f4fbff;text-shadow:0 0 2px #000,0 2px 4px #000}.pp{color:#0a0f14;text-shadow:0 0 2px #7fdfff,0 0 6px rgba(56,214,255,.6)}
+.disco{width:76%;height:76%;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:min(5vw,28px)}
+.disco.b{background:radial-gradient(circle at 35% 30%,#fff,#9fb7c4);box-shadow:0 3px 6px #000}
+.disco.p{background:radial-gradient(circle at 35% 30%,#ff7a7a,#7a1010);box-shadow:0 3px 6px #000}
+.grade{display:grid;gap:6px}
+.celula{background:var(--hud3);border:1px solid var(--hud2);border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-weight:700}
+.velha{grid-template-columns:repeat(3,110px);grid-auto-rows:110px}.velha .celula{font-size:64px}
+.x{color:var(--hud);text-shadow:0 0 14px var(--hud)}.o{color:var(--ouro);text-shadow:0 0 14px var(--ouro)}
+.ganhou{background:rgba(61,255,160,.2)!important}
+.lig4{grid-template-columns:repeat(7,min(11vw,62px));grid-auto-rows:min(11vw,62px);background:#0a2a5c;padding:10px;border-radius:14px}
+.lig4 .celula{border-radius:50%;background:#04070d;border:none}
+.lig4 .v{background:radial-gradient(circle at 35% 30%,#ff8a8a,#c01818)}.lig4 .a{background:radial-gradient(circle at 35% 30%,#fff3a0,#e0b000)}
+.minas{gap:2px}.minas .celula{border-radius:4px;font-size:15px;width:min(5.4vw,32px);height:min(5.4vw,32px)}
+.minas .aberta{background:#071019;cursor:default}.minas .bomba{background:#5a1010}
+.n1{color:#38d6ff}.n2{color:#3dffa0}.n3{color:#ff5a5a}.n4{color:#b47cff}.n5{color:#ffb547}.n6{color:#2ee}.n7{color:#fff}.n8{color:#999}
+.g2048{grid-template-columns:repeat(4,min(20vw,96px));grid-auto-rows:min(20vw,96px);background:#0a1621;padding:10px;border-radius:14px}
+.g2048 .celula{font-size:min(7vw,32px);cursor:default;transition:background .12s}
+.memo{grid-template-columns:repeat(4,min(20vw,96px));grid-auto-rows:min(20vw,96px)}
+.memo .celula{font-size:min(10vw,48px);transition:transform .25s}
+.memo .virada{background:#0d2333;transform:rotateY(180deg)}.memo .par{background:rgba(61,255,160,.15);cursor:default}
+.genius{grid-template-columns:repeat(2,140px);grid-auto-rows:140px;gap:12px}
+.genius .celula{border-radius:28px;opacity:.45;transition:opacity .1s}.genius .celula.aceso{opacity:1;box-shadow:0 0 30px currentColor}
+.teclado{display:flex;flex-wrap:wrap;gap:6px;max-width:460px;justify-content:center}
+.teclado button{width:38px;padding:8px 0}
+.teclado button:disabled{opacity:.25;cursor:default}
+.forca{font-family:Consolas,monospace;white-space:pre;font-size:20px;color:var(--hud);line-height:1.2}
+.palavra{font-size:30px;letter-spacing:8px;margin:14px 0;font-family:Consolas,monospace;text-align:center}
+.grande{font-size:64px;text-align:center}
+.ppt button{font-size:44px;padding:10px 18px;margin:6px}
+.promo{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:9}
+.promo div{background:#08131c;border:1px solid var(--hud);border-radius:14px;padding:16px;display:flex;gap:10px}
+.promo button{font-size:44px}
+.lista{max-height:240px;overflow:auto;font-family:Consolas,monospace;font-size:12px;color:var(--texto)}
+/* 2.5: caça-palavras, sudoku e botões de toque */
+.caca{display:grid;gap:2px;background:#071019;padding:8px;border-radius:12px;touch-action:none}
+.caca div{width:min(6.4vw,34px);height:min(6.4vw,34px);display:flex;align-items:center;justify-content:center;
+ font:700 min(4vw,18px) Consolas,monospace;border-radius:7px;color:var(--texto);cursor:pointer}
+.caca .marcando{background:rgba(56,214,255,.38)}
+.caca .achada{color:#04121b}
+.palavras{columns:2;column-gap:18px;font-family:Consolas,monospace;font-size:14px;color:var(--texto);margin-top:10px}
+.palavras span{display:block;padding:2px 0}.palavras .ok{text-decoration:line-through;color:var(--mudo)}
+.sudoku{display:grid;grid-template-columns:repeat(9,min(9vw,46px));grid-auto-rows:min(9vw,46px);border:2px solid var(--hud);border-radius:8px;overflow:hidden}
+.sudoku div{display:flex;align-items:center;justify-content:center;font-size:min(5vw,23px);border:1px solid rgba(56,214,255,.14);cursor:pointer;color:var(--hud)}
+.sudoku .fixo{color:var(--texto);font-weight:700}
+.sudoku .bd{border-right:2px solid var(--hud)}.sudoku .bb{border-bottom:2px solid var(--hud)}
+.sudoku .viz{background:rgba(56,214,255,.07)}.sudoku .mesmo{background:rgba(255,181,71,.18)}.sudoku .sel{background:rgba(56,214,255,.3)}
+.sudoku .erro{color:var(--verm)}
+.numeros{display:flex;flex-wrap:wrap;gap:6px;max-width:300px;margin-top:10px}
+.numeros button{width:52px;font-size:20px}
+.toque{display:flex;gap:8px;justify-content:center;margin-top:8px}
+.toque button{font-size:22px;width:58px;height:48px;touch-action:none}
+footer{text-align:center;color:var(--mudo);font-size:11px;padding:20px}
+</style>
+</head>
+<body>
+<header><div class="titulo">ARCADE J.A.R.V.I.S</div>
+ <button id="som" title="Som">🔊</button><button id="voltar" style="display:none">‹ Menu</button></header>
+<main>
+ <section id="menu"></section>
+ <section id="jogo">
+  <div class="barra"><h2 id="nomeJogo"></h2><span id="controles"></span></div>
+  <div id="status"></div>
+  <div id="area"></div>
+ </section>
+</main>
+<footer>J.A.R.V.I.S BR · Arcade · fork PT-BR do Mark LVI (FatihMakes), CC BY-NC 4.0</footer>
+<script>
+"use strict";
+// ═══ base ═══════════════════════════════════════════════════════════════════
+const TOKEN = new URLSearchParams(location.search).get("t") || "";
+const SERVIDOR = location.protocol.startsWith("http") && TOKEN;
+const $ = s => document.querySelector(s);
+const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt !== undefined) e.textContent = txt; return e; };
+const rnd = n => Math.floor(Math.random() * n);
+const embaralhar = a => { for (let i = a.length - 1; i > 0; i--) { const j = rnd(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+let somLigado = true;
+try { somLigado = localStorage.getItem("arcade_som") !== "0"; } catch (e) {}
+let ctxAudio = null;
+function bip(freq = 440, dur = 0.08, tipo = "square", vol = 0.05) {
+  if (!somLigado) return;
+  try {
+    ctxAudio = ctxAudio || new (window.AudioContext || window.webkitAudioContext)();
+    const o = ctxAudio.createOscillator(), g = ctxAudio.createGain();
+    o.type = tipo; o.frequency.value = freq; g.gain.value = vol;
+    o.connect(g); g.connect(ctxAudio.destination); o.start();
+    g.gain.exponentialRampToValueAtTime(0.0001, ctxAudio.currentTime + dur); o.stop(ctxAudio.currentTime + dur);
+  } catch (e) {}
+}
+function status(txt, cls = "") { const s = $("#status"); s.textContent = txt; s.className = cls; }
+async function api(caminho, corpo) {
+  const op = corpo === undefined ? {} : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(corpo) };
+  const r = await fetch(caminho + "?t=" + encodeURIComponent(TOKEN), op);
+  return r.json();
+}
+let PLACAR = {};
+function placarLocal() { try { return JSON.parse(localStorage.getItem("arcade_placar") || "{}"); } catch (e) { return {}; } }
+async function carregarPlacar() {
+  PLACAR = placarLocal();
+  if (SERVIDOR) { try { PLACAR = await api("/api/placar"); } catch (e) {} }
+}
+function registrar(jogo, resultado = "", pontos = null) {
+  const j = PLACAR[jogo] = PLACAR[jogo] || { vitorias: 0, derrotas: 0, empates: 0, recorde: 0, partidas: 0 };
+  j.partidas++;
+  if (resultado) j[{ vitoria: "vitorias", derrota: "derrotas", empate: "empates" }[resultado]]++;
+  if (pontos !== null) j.recorde = Math.max(j.recorde || 0, pontos);
+  try { localStorage.setItem("arcade_placar", JSON.stringify(PLACAR)); } catch (e) {}
+  if (SERVIDOR) api("/api/placar", { jogo, resultado, pontos }).catch(() => {});
+}
+function textoPlacar(id) {
+  const j = PLACAR[id]; if (!j) return "";
+  if (j.recorde) return "🏆 " + j.recorde;
+  if (j.vitorias || j.derrotas) return j.vitorias + "V " + j.derrotas + "D";
+  return "";
+}
+function botao(txt, fn, cls) { const b = el("button", cls, txt); b.onclick = fn; return b; }
+function nivelSelect(valor = "medio", aoMudar) {
+  const s = el("select");
+  for (const [v, t] of [["facil", "Fácil"], ["medio", "Médio"], ["dificil", "Difícil"]]) { const o = el("option", "", t); o.value = v; s.appendChild(o); }
+  s.value = valor; if (aoMudar) s.onchange = () => aoMudar(s.value); return s;
+}
+function lado(html) { const d = el("div", "lado"); d.innerHTML = html; return d; }
+// teclas e toques globais → jogo atual
+let atual = null;
+document.addEventListener("keydown", e => {
+  if (!atual || !atual.tecla) return;
+  if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", " "].includes(e.key)) e.preventDefault();
+  atual.tecla(e.key.length === 1 ? e.key.toLowerCase() : e.key);
+});
+let toque0 = null;
+document.addEventListener("touchstart", e => { toque0 = e.touches[0]; }, { passive: true });
+document.addEventListener("touchend", e => {
+  if (!toque0 || !atual || !atual.tecla) return;
+  const t = e.changedTouches[0], dx = t.clientX - toque0.clientX, dy = t.clientY - toque0.clientY;
+  if (Math.max(Math.abs(dx), Math.abs(dy)) < 30) return;
+  atual.tecla(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "ArrowRight" : "ArrowLeft") : (dy > 0 ? "ArrowDown" : "ArrowUp"));
+}, { passive: true });
+
+// ═══ XADREZ (motor do JARVIS no servidor) ═════════════════════════════════════
+const PECAS = { k: "♚", q: "♛", r: "♜", b: "♝", n: "♞", p: "♟" };
+const NOMES_COL = "abcdefgh";
+const Xadrez = {
+  id: "xadrez", nome: "Xadrez", ic: "♞", desc: "Contra o motor do JARVIS. Clique ou fale: 'cavalo f3'.",
+  init(area, ctl) {
+    this.sel = null; this.est = null; this.ocupado = false;
+    if (!SERVIDOR) { status("O xadrez precisa do JARVIS: diga 'Jarvis, abre os jogos'.", "aviso"); return; }
+    this.nivel = nivelSelect("medio");
+    this.cor = el("select"); for (const [v, t] of [["brancas", "Brancas"], ["pretas", "Pretas"]]) { const o = el("option", "", t); o.value = v; this.cor.appendChild(o); }
+    ctl.append(this.nivel, this.cor, botao("Nova partida", () => this.novo()));
+    this.tab = el("div", "tab8"); this.info = lado("");
+    area.append(this.tab, this.info);
+    this.atualizar(true);
+    this.timer = setInterval(() => this.atualizar(), 1500);       // pega os lances falados por voz
+  },
+  stop() { clearInterval(this.timer); },
+  async atualizar(forcar) {
+    if (this.ocupado) return;
+    try {
+      const e = await api("/api/xadrez");
+      if (forcar || !this.est || e.fen !== this.est.fen) { this.est = e; this.sel = null; this.desenhar(); }
+    } catch (err) { status("Sem conexão com o JARVIS.", "ruim"); }
+  },
+  async novo() {
+    this.ocupado = true; status("JARVIS arrumando as peças…");
+    try { this.est = await api("/api/xadrez/novo", { nivel: this.nivel.value, voce: this.cor.value }); status(this.est.fala); }
+    finally { this.ocupado = false; } this.sel = null; this.desenhar();
+  },
+  minhaVez() { const e = this.est; return e && e.ativo && ((e.vez === "w") === (e.voce === "brancas")); },
+  clicar(sq) {
+    const e = this.est; if (!this.minhaVez() || this.ocupado) return;
+    const p = e.tab[sq], minha = p && ((p === p.toUpperCase()) === (e.voce === "brancas"));
+    if (this.sel !== null) {
+      const lances = e.legais.filter(m => m[0] === this.sel && m[1] === sq);
+      if (lances.length) { if (lances[0][2]) return this.escolherPromo(this.sel, sq); return this.jogar(this.sel, sq, ""); }
+    }
+    this.sel = minha ? sq : null; bip(minha ? 660 : 220, 0.04); this.desenhar();
+  },
+  escolherPromo(de, para) {
+    const fundo = el("div", "promo"), caixa = el("div");
+    for (const t of "qrbn") caixa.appendChild(botao(PECAS[t], () => { fundo.remove(); this.jogar(de, para, t.toUpperCase()); }));
+    fundo.appendChild(caixa); document.body.appendChild(fundo);
+  },
+  async jogar(de, para, promo) {
+    this.ocupado = true; this.sel = null;
+    const e = this.est; e.tab[para] = e.tab[de]; e.tab[de] = ""; e.ultimo = [de, para]; e.legais = []; this.desenhar();
+    status("JARVIS pensando…"); bip(520, 0.06);
+    try {
+      const r = await api("/api/xadrez/lance", { de, para, promo });
+      this.est = r; status(r.erro || r.fala, r.erro ? "ruim" : (r.resultado ? (r.fala.includes("você venceu") ? "bom" : "aviso") : ""));
+      if (!r.erro) bip(380, 0.08);
+      if (r.resultado) registrar("xadrez", r.fala.includes("você venceu") ? "vitoria" : (r.resultado.startsWith("mate") ? "derrota" : "empate"));
+    } catch (err) { status("Sem conexão com o JARVIS.", "ruim"); }
+    finally { this.ocupado = false; }
+    this.desenhar();
+  },
+  desenhar() {
+    const e = this.est; this.tab.innerHTML = "";
+    if (!e || !e.fen) { status(e && e.outro ? "Há uma partida de damas em andamento. Comece um xadrez quando quiser." : "Escolha o nível e a cor e clique em Nova partida."); return; }
+    const flip = e.voce === "pretas";
+    const alvos = this.sel === null ? [] : e.legais.filter(m => m[0] === this.sel).map(m => m[1]);
+    const reiXeque = e.xeque ? e.tab.indexOf(e.vez === "w" ? "K" : "k") : -1;
+    for (let i = 0; i < 64; i++) {
+      const r = flip ? Math.floor(i / 8) : 7 - Math.floor(i / 8), f = flip ? 7 - (i % 8) : i % 8, sq = r * 8 + f;
+      const c = el("div", (r + f) % 2 ? "cl" : "es"), p = e.tab[sq];
+      if (e.ultimo && e.ultimo.includes(sq)) c.classList.add("ult");
+      if (sq === this.sel) c.classList.add("sel");
+      if (sq === reiXeque) c.classList.add("xq");
+      if (alvos.includes(sq)) c.classList.add("alvo", ...(p ? ["cap"] : []));
+      if (p) c.appendChild(el("span", p === p.toUpperCase() ? "pb" : "pp", PECAS[p.toLowerCase()]));
+      if ((flip ? r === 7 : r === 0)) c.appendChild(el("span", "coord", NOMES_COL[f]));
+      c.onclick = () => this.clicar(sq); this.tab.appendChild(c);
+    }
+    const nv = { facil: "fácil", medio: "médio", dificil: "difícil" }[e.nivel];
+    this.info.innerHTML = `<b>Você:</b> ${e.voce} · nível ${nv}<br>${e.ativo ? (this.minhaVez() ? "Sua vez." : "Vez do JARVIS.") : "Partida encerrada."}`
+      + `<br><br>Também por voz: <b>"cavalo para f3"</b>, <b>"e2 e4"</b>, <b>"roque pequeno"</b>.<br><br><b>Últimos lances</b><div class="lista">${(e.lances || []).map((l, i) => (i % 2 ? "&nbsp;&nbsp;" : "• ") + l).join("<br>")}</div>`;
+    if (!$("#status").textContent) status(e.ativo ? "Sua vez." : "Clique em Nova partida.");
+  },
+};
+
+// ═══ DAMAS (regras brasileiras, motor no servidor) ════════════════════════════
+const Damas = {
+  id: "damas", nome: "Damas", ic: "⛀", desc: "Regras brasileiras: captura obrigatória e lei da maioria.",
+  init(area, ctl) {
+    this.cam = []; this.est = null; this.ocupado = false;
+    if (!SERVIDOR) { status("As damas precisam do JARVIS: diga 'Jarvis, abre os jogos'.", "aviso"); return; }
+    this.nivel = nivelSelect("medio");
+    ctl.append(this.nivel, botao("Nova partida", () => this.novo()));
+    this.tab = el("div", "tab8"); area.append(this.tab, lado("Você joga com as <b>brancas</b> (de baixo).<br><br>Clique na peça e depois na casa de destino. Em captura múltipla, clique em cada casa onde a peça para.<br><br>Por voz: <b>\"c3 d4\"</b> ou <b>\"c3 e5 c7\"</b>."));
+    this.atualizar(true); this.timer = setInterval(() => this.atualizar(), 1500);
+  },
+  stop() { clearInterval(this.timer); },
+  async atualizar(forcar) {
+    if (this.ocupado) return;
+    try { const e = await api("/api/damas"); const k = JSON.stringify(e.tab); if (forcar || !this.est || k !== JSON.stringify(this.est.tab)) { this.est = e; this.cam = []; this.desenhar(); } }
+    catch (err) { status("Sem conexão com o JARVIS.", "ruim"); }
+  },
+  async novo() { this.ocupado = true; try { this.est = await api("/api/damas/novo", { nivel: this.nivel.value }); status(this.est.fala); } finally { this.ocupado = false; } this.cam = []; this.desenhar(); },
+  igual: (a, b) => a[0] === b[0] && a[1] === b[1],
+  clicar(c, l) {
+    const e = this.est; if (!e || !e.ativo || this.ocupado) return;
+    const prox = [...this.cam, [c, l]];
+    const cands = e.legais.filter(s => prox.every((p, i) => s[i] && this.igual(s[i], p)));
+    if (!cands.length) { const nova = e.legais.filter(s => this.igual(s[0], [c, l])); this.cam = nova.length ? [[c, l]] : []; bip(nova.length ? 660 : 200, 0.04); return this.desenhar(); }
+    this.cam = prox; bip(600, 0.04);
+    const completo = cands.find(s => s.length === prox.length);
+    if (completo && prox.length > 1) return this.jogar(completo);
+    this.desenhar();
+  },
+  async jogar(casas) {
+    this.ocupado = true; status("JARVIS pensando…");
+    try {
+      const r = await api("/api/damas/lance", { casas }); this.est = r;
+      status(r.erro || r.fala, r.erro ? "ruim" : (r.fala.includes("você venceu") ? "bom" : (r.fala.includes("eu venci") ? "aviso" : "")));
+      if (!r.erro && !r.ativo) registrar("damas", r.fala.includes("você venceu") ? "vitoria" : "derrota");
+    } catch (err) { status("Sem conexão com o JARVIS.", "ruim"); }
+    finally { this.ocupado = false; this.cam = []; } this.desenhar();
+  },
+  desenhar() {
+    const e = this.est; this.tab.innerHTML = "";
+    if (!e || !Object.keys(e.tab || {}).length) { status("Clique em Nova partida."); return; }
+    const prefixo = s => this.cam.every((p, i) => s[i] && this.igual(s[i], p));
+    const alvos = this.cam.length ? e.legais.filter(prefixo).map(s => s[this.cam.length]).filter(Boolean) : [];
+    const origens = e.legais.map(s => s[0]);
+    for (let r = 7; r >= 0; r--) for (let c = 0; c < 8; c++) {
+      const casa = el("div", (c + r) % 2 === 0 ? "es" : "cl"), p = e.tab[c + "," + r];
+      if (this.cam.some(x => this.igual(x, [c, r]))) casa.classList.add("sel");
+      if (e.ultimo && e.ultimo.some(x => this.igual(x, [c, r]))) casa.classList.add("ult");
+      if (alvos.some(x => this.igual(x, [c, r]))) casa.classList.add("alvo");
+      if (!this.cam.length && e.ativo && origens.some(x => this.igual(x, [c, r]))) casa.style.boxShadow = "inset 0 0 0 2px rgba(56,214,255,.35)";
+      if (p) casa.appendChild(el("div", "disco " + p.toLowerCase(), p === p.toUpperCase() ? "♛" : ""));
+      if (r === 0) casa.appendChild(el("span", "coord", NOMES_COL[c]));
+      casa.onclick = () => this.clicar(c, r); this.tab.appendChild(casa);
+    }
+    if (!$("#status").textContent) status(e.ativo ? "Sua vez." : "Partida encerrada.");
+  },
+};
+
+// ═══ JOGO DA VELHA ═══════════════════════════════════════════════════════════
+const LINHAS3 = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+function venc3(t) { for (const [a,b,c] of LINHAS3) if (t[a] && t[a] === t[b] && t[a] === t[c]) return [t[a], [a,b,c]]; return t.every(Boolean) ? ["empate", []] : null; }
+function minimax3(t, vez, eu) {
+  const v = venc3(t); if (v) return v[0] === "empate" ? 0 : (v[0] === eu ? 10 : -10);
+  let melhor = vez === eu ? -99 : 99;
+  for (let i = 0; i < 9; i++) if (!t[i]) { t[i] = vez; const n = minimax3(t, vez === "X" ? "O" : "X", eu) * 0.9; t[i] = ""; melhor = vez === eu ? Math.max(melhor, n) : Math.min(melhor, n); }
+  return melhor;
+}
+const Velha = {
+  id: "velha", nome: "Jogo da Velha", ic: "⭕", desc: "No difícil o JARVIS nunca perde. Dá para empatar?",
+  init(area, ctl) { this.nv = nivelSelect("dificil"); ctl.append(this.nv, botao("Recomeçar", () => this.novo())); this.g = el("div", "grade velha"); area.append(this.g); this.novo(); },
+  novo() { this.t = Array(9).fill(""); this.fim = false; status("Você é o X. Comece!"); this.desenhar(); },
+  clicar(i) {
+    if (this.fim || this.t[i]) return; this.t[i] = "X"; bip(700, 0.05);
+    if (!this.checar()) { setTimeout(() => { this.t[this.jarvis()] = "O"; bip(420, 0.05); this.checar(); this.desenhar(); }, 250); }
+    this.desenhar();
+  },
+  jarvis() {
+    const livres = this.t.map((v, i) => v ? -1 : i).filter(i => i >= 0), nv = this.nv.value;
+    if (nv === "facil" || (nv === "medio" && Math.random() < 0.35)) return livres[rnd(livres.length)];
+    let melhor = -99, opc = [];
+    for (const i of livres) { this.t[i] = "O"; const n = minimax3(this.t, "X", "O"); this.t[i] = ""; if (n > melhor) { melhor = n; opc = [i]; } else if (n === melhor) opc.push(i); }
+    return opc[rnd(opc.length)];
+  },
+  checar() {
+    const v = venc3(this.t); if (!v) return false; this.fim = true; this.linha = v[1];
+    if (v[0] === "X") { status("Você venceu! 🎉", "bom"); registrar("velha", "vitoria"); bip(880, 0.3, "triangle"); }
+    else if (v[0] === "O") { status("JARVIS venceu.", "aviso"); registrar("velha", "derrota"); }
+    else { status("Deu velha (empate).", ""); registrar("velha", "empate"); }
+    return true;
+  },
+  desenhar() {
+    this.g.innerHTML = "";
+    this.t.forEach((v, i) => { const c = el("div", "celula " + (v === "X" ? "x" : v === "O" ? "o" : ""), v); if (this.fim && (this.linha || []).includes(i)) c.classList.add("ganhou"); c.onclick = () => this.clicar(i); this.g.appendChild(c); });
+  },
+};
+
+// ═══ LIG 4 ═══════════════════════════════════════════════════════════════════
+const Lig4 = {
+  id: "lig4", nome: "Lig 4", ic: "🔴", desc: "Alinhe 4 fichas. O JARVIS pensa várias jogadas à frente.",
+  init(area, ctl) { this.nv = nivelSelect("medio"); ctl.append(this.nv, botao("Recomeçar", () => this.novo())); this.g = el("div", "grade lig4"); area.append(this.g, lado("Você é <b style='color:#ff5a5a'>vermelho</b>. Clique na coluna.<br>Teclas 1 a 7 também funcionam.")); this.novo(); },
+  novo() { this.c = Array.from({ length: 7 }, () => []); this.fim = false; status("Sua vez."); this.desenhar(); },
+  tecla(k) { if (k >= "1" && k <= "7") this.clicar(+k - 1); },
+  em(c, r) { return c >= 0 && c < 7 && r >= 0 && r < this.c[c].length ? this.c[c][r] : ""; },
+  venc() {
+    for (let c = 0; c < 7; c++) for (let r = 0; r < this.c[c].length; r++) { const p = this.c[c][r];
+      for (const [dc, dr] of [[1,0],[0,1],[1,1],[1,-1]]) if ([1,2,3].every(k => this.em(c + dc*k, r + dr*k) === p)) return p; }
+    return this.c.every(x => x.length === 6) ? "empate" : "";
+  },
+  nota() {
+    let n = 0;
+    for (let c = 0; c < 7; c++) for (let r = 0; r < 6; r++) for (const [dc, dr] of [[1,0],[0,1],[1,1],[1,-1]]) {
+      if (c + dc*3 > 6 || r + dr*3 > 5 || r + dr*3 < 0) continue;
+      let a = 0, b = 0; for (let k = 0; k < 4; k++) { const p = this.em(c + dc*k, r + dr*k); if (p === "a") a++; else if (p === "v") b++; }
+      if (a && !b) n += [0, 1, 4, 20, 1000][a]; else if (b && !a) n -= [0, 1, 5, 25, 1000][b];
+    }
+    return n + this.c[3].filter(x => x === "a").length * 3;
+  },
+  busca(prof, alfa, beta, max) {
+    const v = this.venc(); if (v) return v === "empate" ? 0 : (v === "a" ? 100000 + prof : -100000 - prof);
+    if (!prof) return this.nota();
+    let melhor = max ? -1e9 : 1e9;
+    for (const c of [3,2,4,1,5,0,6]) { if (this.c[c].length >= 6) continue;
+      this.c[c].push(max ? "a" : "v"); const n = this.busca(prof - 1, alfa, beta, !max); this.c[c].pop();
+      if (max) { melhor = Math.max(melhor, n); alfa = Math.max(alfa, n); } else { melhor = Math.min(melhor, n); beta = Math.min(beta, n); }
+      if (alfa >= beta) break; }
+    return melhor;
+  },
+  jarvis() {
+    const livres = [0,1,2,3,4,5,6].filter(c => this.c[c].length < 6), nv = this.nv.value;
+    if (nv === "facil") return livres[rnd(livres.length)];
+    const prof = nv === "medio" ? 3 : 6; let melhor = -1e10, opc = [];
+    for (const c of livres) { this.c[c].push("a"); const n = this.busca(prof - 1, -1e9, 1e9, false); this.c[c].pop(); if (n > melhor) { melhor = n; opc = [c]; } else if (n === melhor) opc.push(c); }
+    return opc[rnd(opc.length)];
+  },
+  clicar(col) {
+    if (this.fim || this.c[col].length >= 6) return; this.c[col].push("v"); bip(500, 0.05); this.desenhar();
+    if (this.final()) return; status("JARVIS pensando…");
+    setTimeout(() => { this.c[this.jarvis()].push("a"); bip(330, 0.05); this.desenhar(); if (!this.final()) status("Sua vez."); }, 60);
+  },
+  final() {
+    const v = this.venc(); if (!v) return false; this.fim = true;
+    if (v === "v") { status("Você venceu! 🎉", "bom"); registrar("lig4", "vitoria"); } else if (v === "a") { status("JARVIS venceu.", "aviso"); registrar("lig4", "derrota"); } else { status("Empate.", ""); registrar("lig4", "empate"); }
+    return true;
+  },
+  desenhar() {
+    this.g.innerHTML = "";
+    for (let r = 5; r >= 0; r--) for (let c = 0; c < 7; c++) { const p = this.em(c, r); const d = el("div", "celula " + p); d.onclick = () => this.clicar(c); this.g.appendChild(d); }
+  },
+};
+
+// ═══ CAMPO MINADO ════════════════════════════════════════════════════════════
+const Minas = {
+  id: "minas", nome: "Campo Minado", ic: "💣", desc: "Abra tudo sem explodir. Clique direito marca bandeira.",
+  init(area, ctl) {
+    this.tam = el("select"); for (const [v, t] of [["9,10", "Fácil 9×9"], ["12,24", "Médio 12×12"], ["16,40", "Difícil 16×16"]]) { const o = el("option", "", t); o.value = v; this.tam.appendChild(o); }
+    this.bandeira = botao("🚩 Modo bandeira", () => { this.modoB = !this.modoB; this.bandeira.classList.toggle("ativo", this.modoB); });
+    ctl.append(this.tam, this.bandeira, botao("Novo", () => this.novo())); this.tam.onchange = () => this.novo();
+    this.g = el("div", "grade minas"); area.append(this.g); this.novo();
+  },
+  stop() { clearInterval(this.relogio); },
+  novo() {
+    [this.n, this.qtd] = this.tam.value.split(",").map(Number); this.minas = null; this.aberta = new Set(); this.flag = new Set(); this.fim = false; this.modoB = false; this.bandeira.classList.remove("ativo");
+    clearInterval(this.relogio); this.seg = 0; this.g.style.gridTemplateColumns = `repeat(${this.n}, auto)`; status(`${this.qtd} minas. Primeiro clique é sempre seguro.`); this.desenhar();
+  },
+  viz(i) { const n = this.n, r = Math.floor(i / n), c = i % n, v = []; for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) { const rr = r + dr, cc = c + dc; if ((dr || dc) && rr >= 0 && cc >= 0 && rr < n && cc < n) v.push(rr * n + cc); } return v; },
+  plantar(seguro) {
+    const proibidas = new Set([seguro, ...this.viz(seguro)]), livres = [...Array(this.n * this.n).keys()].filter(i => !proibidas.has(i));
+    this.minas = new Set(embaralhar(livres).slice(0, this.qtd));
+    this.relogio = setInterval(() => { this.seg++; if (!this.fim) status(`⏱ ${this.seg}s · 🚩 ${this.flag.size}/${this.qtd}`); }, 1000);
+  },
+  conta(i) { return this.viz(i).filter(j => this.minas.has(j)).length; },
+  abrir(i) {
+    if (this.fim || this.flag.has(i)) return;
+    if (!this.minas) this.plantar(i);
+    if (this.aberta.has(i)) { const v = this.viz(i); if (v.filter(j => this.flag.has(j)).length === this.conta(i)) v.forEach(j => { if (!this.aberta.has(j) && !this.flag.has(j)) this.abrirUma(j); }); }
+    else this.abrirUma(i);
+    this.checar(); this.desenhar();
+  },
+  abrirUma(i) {
+    if (this.minas.has(i)) { this.fim = "perdeu"; return; }
+    const pilha = [i];
+    while (pilha.length) { const j = pilha.pop(); if (this.aberta.has(j) || this.flag.has(j)) continue; this.aberta.add(j); if (this.conta(j) === 0) pilha.push(...this.viz(j)); }
+    bip(800, 0.02);
+  },
+  marcar(i) { if (this.fim || this.aberta.has(i)) return; this.flag.has(i) ? this.flag.delete(i) : this.flag.add(i); bip(300, 0.03); this.desenhar(); },
+  checar() {
+    if (this.fim === "perdeu") { clearInterval(this.relogio); status("💥 Boom! Tente de novo.", "ruim"); bip(90, 0.5, "sawtooth", 0.08); registrar("minas", "derrota"); return; }
+    if (this.aberta.size === this.n * this.n - this.qtd) { this.fim = "ganhou"; clearInterval(this.relogio); status(`Campo limpo em ${this.seg}s! 🎉`, "bom"); registrar("minas", "vitoria"); }
+  },
+  desenhar() {
+    this.g.innerHTML = "";
+    for (let i = 0; i < this.n * this.n; i++) {
+      const c = el("div", "celula");
+      if (this.aberta.has(i)) { c.classList.add("aberta"); const k = this.conta(i); if (k) { c.textContent = k; c.classList.add("n" + k); } }
+      else if (this.fim && this.minas && this.minas.has(i)) { c.textContent = "💣"; c.classList.add("bomba"); }
+      else if (this.flag.has(i)) c.textContent = "🚩";
+      c.onclick = () => this.modoB ? this.marcar(i) : this.abrir(i);
+      c.oncontextmenu = ev => { ev.preventDefault(); this.marcar(i); };
+      this.g.appendChild(c);
+    }
+  },
+};
+
+// ═══ 2048 ════════════════════════════════════════════════════════════════════
+const CORES2048 = { 2: "#12324a", 4: "#164260", 8: "#0e7490", 16: "#0891b2", 32: "#06b6d4", 64: "#22d3ee", 128: "#a855f7", 256: "#9333ea", 512: "#f59e0b", 1024: "#f97316", 2048: "#ef4444" };
+const J2048 = {
+  id: "2048", nome: "2048", ic: "🔢", desc: "Junte os números até chegar no 2048. Setas ou deslize.",
+  init(area, ctl) { ctl.append(botao("Novo", () => this.novo())); this.g = el("div", "grade g2048"); area.append(this.g, lado("Use as <b>setas</b> (ou WASD), ou deslize o dedo.")); this.novo(); },
+  novo() { this.t = Array(16).fill(0); this.pts = 0; this.venceu = false; this.nova(); this.nova(); this.desenhar(); },
+  nova() { const v = this.t.map((x, i) => x ? -1 : i).filter(i => i >= 0); if (v.length) this.t[v[rnd(v.length)]] = Math.random() < 0.9 ? 2 : 4; },
+  tecla(k) {
+    const d = { ArrowLeft: 0, a: 0, ArrowUp: 1, w: 1, ArrowRight: 2, d: 2, ArrowDown: 3, s: 3 }[k]; if (d === undefined) return;
+    const antes = this.t.join();
+    for (let i = 0; i < 4; i++) {
+      const idx = [0,1,2,3].map(j => d === 0 ? i*4+j : d === 2 ? i*4+3-j : d === 1 ? j*4+i : (3-j)*4+i);
+      let lin = idx.map(x => this.t[x]).filter(Boolean);
+      for (let j = 0; j < lin.length - 1; j++) if (lin[j] === lin[j+1]) { lin[j] *= 2; this.pts += lin[j]; if (lin[j] === 2048 && !this.venceu) { this.venceu = true; status("2048! Você venceu — pode continuar.", "bom"); registrar("2048", "vitoria"); } lin.splice(j + 1, 1); }
+      idx.forEach((x, j) => this.t[x] = lin[j] || 0);
+    }
+    if (this.t.join() !== antes) { this.nova(); bip(400 + Math.min(this.pts, 2000) / 10, 0.03); }
+    this.desenhar();
+    if (!this.podeMover()) { status(`Fim de jogo! ${this.pts} pontos.`, "aviso"); registrar("2048", "", this.pts); }
+  },
+  podeMover() { if (this.t.includes(0)) return true; for (let i = 0; i < 16; i++) { if (i % 4 < 3 && this.t[i] === this.t[i+1]) return true; if (i < 12 && this.t[i] === this.t[i+4]) return true; } return false; },
+  desenhar() {
+    this.g.innerHTML = ""; for (const v of this.t) { const c = el("div", "celula", v || ""); c.style.background = v ? (CORES2048[v] || "#dc2626") : ""; this.g.appendChild(c); }
+    if (!this.venceu && this.podeMover()) status(`Pontos: ${this.pts}`);
+  },
+};
+
+// ═══ COBRINHA ════════════════════════════════════════════════════════════════
+const Cobrinha = {
+  id: "cobrinha", nome: "Cobrinha", ic: "🐍", desc: "Coma e cresça. Fica mais rápida a cada maçã.",
+  init(area, ctl) { ctl.append(botao("Novo", () => this.novo())); this.cv = el("canvas"); this.cv.width = this.cv.height = 440; this.ctx = this.cv.getContext("2d"); area.append(this.cv, lado("<b>Setas</b>/WASD ou deslize. <b>Espaço</b> pausa.")); this.novo(); },
+  stop() { clearTimeout(this.timer); },
+  novo() { clearTimeout(this.timer); this.n = 22; this.cobra = [[11, 11], [10, 11], [9, 11]]; this.dir = [1, 0]; this.fila = []; this.pts = 0; this.vivo = true; this.pausa = false; this.comida(); status("Pontos: 0"); this.passo(); },
+  comida() { do { this.maca = [rnd(this.n), rnd(this.n)]; } while (this.cobra.some(p => p[0] === this.maca[0] && p[1] === this.maca[1])); },
+  tecla(k) {
+    if (k === " ") { this.pausa = !this.pausa; if (!this.pausa && this.vivo) this.passo(); return; }
+    const d = { ArrowUp: [0,-1], w: [0,-1], ArrowDown: [0,1], s: [0,1], ArrowLeft: [-1,0], a: [-1,0], ArrowRight: [1,0], d: [1,0] }[k];
+    const ult = this.fila.length ? this.fila[this.fila.length - 1] : this.dir;
+    if (d && !(d[0] === -ult[0] && d[1] === -ult[1]) && this.fila.length < 3) this.fila.push(d);
+  },
+  passo() {
+    if (!this.vivo || this.pausa) return;
+    if (this.fila.length) this.dir = this.fila.shift();
+    const cab = [this.cobra[0][0] + this.dir[0], this.cobra[0][1] + this.dir[1]];
+    if (cab[0] < 0 || cab[1] < 0 || cab[0] >= this.n || cab[1] >= this.n || this.cobra.some(p => p[0] === cab[0] && p[1] === cab[1])) {
+      this.vivo = false; status(`Fim! ${this.pts} pontos.`, "aviso"); bip(110, 0.4, "sawtooth", 0.07); registrar("cobrinha", "", this.pts); return this.desenhar();
+    }
+    this.cobra.unshift(cab);
+    if (cab[0] === this.maca[0] && cab[1] === this.maca[1]) { this.pts += 10; this.comida(); bip(900, 0.05); status("Pontos: " + this.pts); } else this.cobra.pop();
+    this.desenhar(); this.timer = setTimeout(() => this.passo(), Math.max(55, 140 - this.pts / 2));
+  },
+  desenhar() {
+    const c = this.ctx, s = this.cv.width / this.n; c.fillStyle = "#050c13"; c.fillRect(0, 0, this.cv.width, this.cv.height);
+    c.fillStyle = "#ff5a5a"; c.shadowColor = "#ff5a5a"; c.shadowBlur = 12; c.beginPath(); c.arc((this.maca[0] + .5) * s, (this.maca[1] + .5) * s, s * .38, 0, 7); c.fill();
+    c.shadowColor = "#38d6ff"; this.cobra.forEach((p, i) => { c.fillStyle = i ? `rgba(56,214,255,${Math.max(.35, 1 - i / 40)})` : "#d8f6ff"; c.fillRect(p[0] * s + 1, p[1] * s + 1, s - 2, s - 2); });
+    c.shadowBlur = 0;
+  },
+};
+
+// ═══ TETRIS ══════════════════════════════════════════════════════════════════
+const PECAS_T = { I: [[0,1],[1,1],[2,1],[3,1]], O: [[1,0],[2,0],[1,1],[2,1]], T: [[1,0],[0,1],[1,1],[2,1]], S: [[1,0],[2,0],[0,1],[1,1]], Z: [[0,0],[1,0],[1,1],[2,1]], J: [[0,0],[0,1],[1,1],[2,1]], L: [[2,0],[0,1],[1,1],[2,1]] };
+const COR_T = { I: "#22d3ee", O: "#facc15", T: "#a855f7", S: "#3dffa0", Z: "#ff5a5a", J: "#3b82f6", L: "#fb923c" };
+const Tetris = {
+  id: "tetris", nome: "Blocos", ic: "🧱", desc: "Encaixe as peças e limpe linhas (estilo Tetris).",
+  init(area, ctl) { ctl.append(botao("Novo", () => this.novo())); this.cv = el("canvas"); this.cv.width = 260; this.cv.height = 520; this.ctx = this.cv.getContext("2d"); this.info = lado(""); area.append(this.cv, this.info); this.novo(); },
+  stop() { clearTimeout(this.timer); },
+  novo() { clearTimeout(this.timer); this.g = Array.from({ length: 20 }, () => Array(10).fill("")); this.pts = 0; this.linhas = 0; this.vivo = true; this.prox = this.sortear(); this.nova(); this.cair(); },
+  sortear() { const k = "IOTSZJL"[rnd(7)]; return { k, b: PECAS_T[k].map(p => [...p]) }; },
+  nova() { this.p = this.prox; this.prox = this.sortear(); this.x = 3; this.y = 0; if (this.bate(this.p.b, 3, 0)) { this.vivo = false; status(`Fim! ${this.pts} pontos.`, "aviso"); registrar("tetris", "", this.pts); } },
+  bate(b, x, y) { return b.some(([px, py]) => { const X = px + x, Y = py + y; return X < 0 || X >= 10 || Y >= 20 || (Y >= 0 && this.g[Y][X]); }); },
+  girar() { if (this.p.k === "O") return; const b = this.p.b.map(([x, y]) => [2 - y, x]); for (const dx of [0, -1, 1, -2, 2]) if (!this.bate(b, this.x + dx, this.y)) { this.p.b = b; this.x += dx; bip(600, 0.02); return; } },
+  fixar() {
+    this.p.b.forEach(([px, py]) => { if (py + this.y >= 0) this.g[py + this.y][px + this.x] = this.p.k; });
+    let n = 0; for (let y = 19; y >= 0; y--) if (this.g[y].every(Boolean)) { this.g.splice(y, 1); this.g.unshift(Array(10).fill("")); n++; y++; }
+    if (n) { this.linhas += n; this.pts += [0, 100, 300, 500, 800][n] * (1 + Math.floor(this.linhas / 10)); bip(880, 0.12, "triangle"); } else bip(200, 0.03);
+    this.nova();
+  },
+  descer() { if (!this.bate(this.p.b, this.x, this.y + 1)) { this.y++; return true; } this.fixar(); return false; },
+  cair() { if (!this.vivo) return this.desenhar(); this.descer(); this.desenhar(); this.timer = setTimeout(() => this.cair(), Math.max(90, 520 - Math.floor(this.linhas / 10) * 60)); },
+  tecla(k) {
+    if (!this.vivo) return;
+    if (k === "ArrowLeft" || k === "a") { if (!this.bate(this.p.b, this.x - 1, this.y)) this.x--; }
+    else if (k === "ArrowRight" || k === "d") { if (!this.bate(this.p.b, this.x + 1, this.y)) this.x++; }
+    else if (k === "ArrowDown" || k === "s") { if (this.descer()) this.pts += 1; }
+    else if (k === "ArrowUp" || k === "w") this.girar();
+    else if (k === " ") { while (this.descer()) this.pts += 2; }
+    this.desenhar();
+  },
+  desenhar() {
+    const c = this.ctx, s = 26; c.fillStyle = "#050c13"; c.fillRect(0, 0, 260, 520);
+    const bloco = (x, y, k, a = 1) => { c.globalAlpha = a; c.fillStyle = COR_T[k]; c.fillRect(x * s + 1, y * s + 1, s - 2, s - 2); c.globalAlpha = 1; };
+    this.g.forEach((lin, y) => lin.forEach((k, x) => k && bloco(x, y, k)));
+    if (this.vivo) { let gy = this.y; while (!this.bate(this.p.b, this.x, gy + 1)) gy++; this.p.b.forEach(([px, py]) => bloco(px + this.x, py + gy, this.p.k, .2)); this.p.b.forEach(([px, py]) => bloco(px + this.x, py + this.y, this.p.k)); }
+    this.info.innerHTML = `<b>Pontos:</b> ${this.pts}<br><b>Linhas:</b> ${this.linhas}<br><b>Nível:</b> ${1 + Math.floor(this.linhas / 10)}<br><b>Próxima:</b> <span style="color:${COR_T[this.prox.k]};font-size:22px">■ ${this.prox.k}</span><br><br>← → move · ↑ gira · ↓ desce · <b>Espaço</b> derruba`;
+    if (this.vivo) status("Pontos: " + this.pts);
+  },
+};
+
+// ═══ BREAKOUT ════════════════════════════════════════════════════════════════
+const Breakout = {
+  id: "breakout", nome: "Quebra-Tijolos", ic: "🧨", desc: "Rebata a bola e destrua os tijolos. Mouse ou setas.",
+  init(area, ctl) {
+    ctl.append(botao("Novo", () => this.novo())); this.cv = el("canvas"); this.cv.width = 560; this.cv.height = 440; this.ctx = this.cv.getContext("2d"); area.append(this.cv);
+    this.cv.onmousemove = e => { const r = this.cv.getBoundingClientRect(); this.px = (e.clientX - r.left) * (560 / r.width) - this.pw / 2; };
+    this.cv.ontouchmove = e => { const r = this.cv.getBoundingClientRect(); this.px = (e.touches[0].clientX - r.left) * (560 / r.width) - this.pw / 2; };
+    this.cv.onclick = () => { if (this.parada) this.parada = false; }; this.novo();
+  },
+  stop() { cancelAnimationFrame(this.raf); },
+  novo() { cancelAnimationFrame(this.raf); this.pw = 90; this.px = 235; this.vidas = 3; this.pts = 0; this.fase = 1; this.montar(); this.loop(); },
+  montar() { this.tij = []; for (let r = 0; r < 6; r++) for (let c = 0; c < 10; c++) this.tij.push({ x: 8 + c * 54.4, y: 50 + r * 22, v: true, cor: ["#ff5a5a", "#fb923c", "#facc15", "#3dffa0", "#38d6ff", "#a855f7"][r] }); this.bola(); },
+  bola() { this.bx = 280; this.by = 380; const v = 4 + this.fase * 0.6; this.vx = (Math.random() < .5 ? -1 : 1) * v * 0.6; this.vy = -v; this.parada = true; status("Clique ou aperte Espaço para lançar."); },
+  tecla(k) { if (k === " ") this.parada = false; if (k === "ArrowLeft" || k === "a") this.px -= 30; if (k === "ArrowRight" || k === "d") this.px += 30; },
+  loop() {
+    this.px = Math.max(0, Math.min(560 - this.pw, this.px));
+    if (!this.parada) {
+      this.bx += this.vx; this.by += this.vy;
+      if (this.bx < 6 || this.bx > 554) { this.vx *= -1; bip(500, 0.02); }
+      if (this.by < 6) { this.vy *= -1; bip(500, 0.02); }
+      if (this.by > 404 && this.by < 416 && this.bx > this.px && this.bx < this.px + this.pw && this.vy > 0) { const rel = (this.bx - this.px) / this.pw - 0.5, v = Math.hypot(this.vx, this.vy); this.vx = v * rel * 1.6; this.vy = -Math.sqrt(Math.max(1, v * v - this.vx * this.vx)); bip(300, 0.03); }
+      for (const t of this.tij) if (t.v && this.bx > t.x && this.bx < t.x + 50 && this.by > t.y && this.by < t.y + 18) { t.v = false; this.vy *= -1; this.pts += 10; bip(700 + rnd(300), 0.03); break; }
+      if (this.by > 440) { this.vidas--; bip(120, 0.3, "sawtooth"); if (this.vidas <= 0) { status(`Fim! ${this.pts} pontos.`, "aviso"); registrar("breakout", "", this.pts); this.desenhar(); return; } this.bola(); }
+      if (this.tij.every(t => !t.v)) { this.fase++; this.montar(); status(`Fase ${this.fase}!`, "bom"); }
+      else if (!this.parada) status(`Pontos: ${this.pts} · Vidas: ${"❤".repeat(this.vidas)} · Fase ${this.fase}`);
+    } else { this.bx = this.px + this.pw / 2; }
+    this.desenhar(); this.raf = requestAnimationFrame(() => this.loop());
+  },
+  desenhar() {
+    const c = this.ctx; c.fillStyle = "#050c13"; c.fillRect(0, 0, 560, 440);
+    for (const t of this.tij) if (t.v) { c.fillStyle = t.cor; c.fillRect(t.x, t.y, 50, 18); }
+    c.fillStyle = "#38d6ff"; c.shadowColor = "#38d6ff"; c.shadowBlur = 14; c.fillRect(this.px, 410, this.pw, 10);
+    c.fillStyle = "#fff"; c.beginPath(); c.arc(this.bx, this.parada ? 400 : this.by, 6, 0, 7); c.fill(); c.shadowBlur = 0;
+  },
+};
+
+// ═══ MEMÓRIA ═════════════════════════════════════════════════════════════════
+const Memoria = {
+  id: "memoria", nome: "Memória", ic: "🧠", desc: "Ache os pares no menor número de jogadas.",
+  init(area, ctl) { ctl.append(botao("Novo", () => this.novo())); this.g = el("div", "grade memo"); area.append(this.g); this.novo(); },
+  novo() { this.cartas = embaralhar([..."🚀🤖🎮🎧⚡🛸🧩💎"].flatMap(x => [x, x]).map(s => ({ s, aberta: false, par: false }))); this.abertas = []; this.jog = 0; this.bloq = false; status("Jogadas: 0"); this.desenhar(); },
+  clicar(i) {
+    const c = this.cartas[i]; if (this.bloq || c.aberta || c.par) return; c.aberta = true; this.abertas.push(i); bip(600, 0.03);
+    if (this.abertas.length === 2) {
+      this.jog++; const [a, b] = this.abertas.map(j => this.cartas[j]);
+      if (a.s === b.s) { a.par = b.par = true; this.abertas = []; bip(900, 0.08, "triangle");
+        if (this.cartas.every(x => x.par)) { status(`Terminou em ${this.jog} jogadas! 🎉`, "bom"); registrar("memoria", "", Math.max(1, 100 - this.jog)); } else status("Jogadas: " + this.jog); }
+      else { this.bloq = true; status("Jogadas: " + this.jog); setTimeout(() => { a.aberta = b.aberta = false; this.abertas = []; this.bloq = false; this.desenhar(); }, 800); }
+    }
+    this.desenhar();
+  },
+  desenhar() { this.g.innerHTML = ""; this.cartas.forEach((c, i) => { const d = el("div", "celula" + (c.par ? " par" : c.aberta ? "" : " virada"), c.aberta || c.par ? c.s : ""); d.onclick = () => this.clicar(i); this.g.appendChild(d); }); },
+};
+
+// ═══ FORCA ═══════════════════════════════════════════════════════════════════
+const PALAVRAS = {
+  animais: ["capivara","tamandua","jacare","papagaio","onca","tucano","golfinho","elefante","girafa","borboleta","tartaruga","pinguim","camaleao","jabuti","sucuri","morcego"],
+  frutas: ["jabuticaba","acerola","pitanga","goiaba","abacaxi","maracuja","caju","cupuacu","graviola","melancia","carambola","tangerina","pequi","acai","mangaba"],
+  comidas: ["feijoada","pamonha","coxinha","brigadeiro","tapioca","moqueca","pastel","empadao","galinhada","quindim","acaraje","farofa","churrasco"],
+  tecnologia: ["teclado","processador","algoritmo","internet","servidor","programador","aplicativo","computador","impressora","roteador","microfone","bateria"],
+  lugares: ["goiania","pirenopolis","chapada","amazonia","pantanal","salvador","fortaleza","brasilia","curitiba","manaus","recife"],
+};
+const BONECO = [" ┌──┐\n │\n │\n │\n─┴─"," ┌──┐\n │  O\n │\n │\n─┴─"," ┌──┐\n │  O\n │  |\n │\n─┴─"," ┌──┐\n │  O\n │ /|\n │\n─┴─"," ┌──┐\n │  O\n │ /|\\\n │\n─┴─"," ┌──┐\n │  O\n │ /|\\\n │ /\n─┴─"," ┌──┐\n │  O\n │ /|\\\n │ / \\\n─┴─"];
+const Forca = {
+  id: "forca", nome: "Forca", ic: "🪢", desc: "Adivinhe a palavra (temas brasileiros). Também por voz.",
+  init(area, ctl) {
+    ctl.append(botao("Nova palavra", () => this.novo()));
+    const esq = el("div"); this.boneco = el("div", "forca"); esq.appendChild(this.boneco);
+    const dir = el("div"); this.tema = el("div", "lado"); this.pal = el("div", "palavra"); this.tec = el("div", "teclado"); dir.append(this.tema, this.pal, this.tec);
+    area.append(esq, dir); this.novo();
+  },
+  novo() { const temas = Object.keys(PALAVRAS); this.t = temas[rnd(temas.length)]; this.p = PALAVRAS[this.t][rnd(PALAVRAS[this.t].length)]; this.letras = new Set(); this.erros = 0; this.fim = false; status("Escolha uma letra."); this.desenhar(); },
+  tecla(k) { if (/^[a-z]$/.test(k)) this.chutar(k); },
+  chutar(l) {
+    if (this.fim || this.letras.has(l)) return; this.letras.add(l);
+    if (this.p.includes(l)) bip(800, 0.05); else { this.erros++; bip(180, 0.1); }
+    if ([...this.p].every(ch => this.letras.has(ch))) { this.fim = true; status("Acertou! 🎉", "bom"); registrar("forca", "vitoria"); }
+    else if (this.erros >= 6) { this.fim = true; status(`Enforcado! Era ${this.p.toUpperCase()}.`, "ruim"); registrar("forca", "derrota"); }
+    else status(`${6 - this.erros} vidas.`);
+    this.desenhar();
+  },
+  desenhar() {
+    this.boneco.textContent = BONECO[this.erros]; this.tema.innerHTML = `Tema: <b>${this.t}</b>`;
+    this.pal.textContent = [...this.p].map(ch => this.letras.has(ch) || this.fim ? ch.toUpperCase() : "_").join("");
+    this.tec.innerHTML = ""; for (const l of "abcdefghijklmnopqrstuvwxyz") { const b = botao(l.toUpperCase(), () => this.chutar(l)); b.disabled = this.letras.has(l) || this.fim; this.tec.appendChild(b); }
+  },
+};
+
+// ═══ GENIUS ══════════════════════════════════════════════════════════════════
+const Genius = {
+  id: "genius", nome: "Genius", ic: "🟢", desc: "Repita a sequência de luzes e sons. Até onde você vai?",
+  init(area, ctl) {
+    ctl.append(botao("Começar", () => this.novo())); this.g = el("div", "grade genius");
+    this.cores = [["#3dffa0", 330], ["#ff5a5a", 262], ["#facc15", 392], ["#38d6ff", 523]];
+    this.pads = this.cores.map(([cor], i) => { const d = el("div", "celula"); d.style.background = cor; d.style.color = cor; d.onclick = () => this.clicar(i); this.g.appendChild(d); return d; });
+    area.append(this.g, lado("Teclas <b>1 2 3 4</b> também funcionam.")); status("Clique em Começar.");
+  },
+  stop() { this.parado = true; },
+  tecla(k) { if ("1234".includes(k)) this.clicar(+k - 1); },
+  acender(i, ms = 350) { this.pads[i].classList.add("aceso"); bip(this.cores[i][1], ms / 1000, "sine", 0.08); setTimeout(() => this.pads[i].classList.remove("aceso"), ms); },
+  novo() { this.seq = []; this.parado = false; this.rodada(); },
+  rodada() {
+    this.seq.push(rnd(4)); this.pos = 0; this.vez = false; status(`Rodada ${this.seq.length} — observe…`);
+    const vel = Math.max(220, 600 - this.seq.length * 25);
+    this.seq.forEach((c, k) => setTimeout(() => { if (!this.parado) this.acender(c, vel * 0.7); }, 600 + k * vel));
+    setTimeout(() => { this.vez = true; status(`Rodada ${this.seq.length} — sua vez!`); }, 600 + this.seq.length * vel);
+  },
+  clicar(i) {
+    if (!this.vez) return; this.acender(i, 200);
+    if (i !== this.seq[this.pos]) { this.vez = false; bip(100, 0.5, "sawtooth", 0.08); status(`Errou! Você chegou à rodada ${this.seq.length}.`, "ruim"); registrar("genius", "", this.seq.length - 1); return; }
+    if (++this.pos === this.seq.length) { this.vez = false; setTimeout(() => this.rodada(), 700); }
+  },
+};
+
+// ═══ PEDRA, PAPEL, TESOURA (IA que aprende) ═══════════════════════════════════
+const GANHA = { pedra: "tesoura", papel: "pedra", tesoura: "papel" }, PERDE = { tesoura: "pedra", pedra: "papel", papel: "tesoura" };
+const EMOJI = { pedra: "✊", papel: "✋", tesoura: "✌️" };
+const PPT = {
+  id: "ppt", nome: "Pedra, Papel, Tesoura", ic: "✊", desc: "O JARVIS aprende seus padrões. Consegue ser imprevisível?",
+  init(area, ctl) {
+    ctl.append(botao("Zerar", () => this.novo())); const caixa = el("div", "ppt"); this.palco = el("div", "grande", "❔ vs ❔");
+    for (const x of ["pedra", "papel", "tesoura"]) caixa.appendChild(botao(EMOJI[x], () => this.jogar(x)));
+    const col = el("div"); col.append(this.palco, caixa); this.info = lado(""); area.append(col, this.info); this.novo();
+  },
+  novo() { this.hist = []; this.v = this.d = this.e = 0; status("Escolha: pedra, papel ou tesoura (teclas 1 2 3)."); this.mostrar(); },
+  tecla(k) { const x = { 1: "pedra", 2: "papel", 3: "tesoura" }[k]; if (x) this.jogar(x); },
+  prever() {
+    const h = this.hist; if (h.length < 3) return ["pedra", "papel", "tesoura"][rnd(3)];
+    const cont = {}; for (let i = 0; i < h.length - 1; i++) if (h[i] === h[h.length - 1]) cont[h[i + 1]] = (cont[h[i + 1]] || 0) + 1;
+    const base = Object.keys(cont).length ? cont : h.reduce((a, x) => (a[x] = (a[x] || 0) + 1, a), {});
+    const prov = Object.entries(base).sort((a, b) => b[1] - a[1])[0][0];
+    return Math.random() < 0.85 ? PERDE[prov] : ["pedra", "papel", "tesoura"][rnd(3)];
+  },
+  jogar(x) {
+    const eu = this.prever(); this.hist.push(x); this.palco.textContent = `${EMOJI[x]} vs ${EMOJI[eu]}`;
+    if (x === eu) { this.e++; status("Empate.", ""); } else if (GANHA[x] === eu) { this.v++; status("Você ganhou a rodada!", "bom"); bip(800, 0.06); } else { this.d++; status("JARVIS ganhou a rodada.", "aviso"); bip(250, 0.06); }
+    if ((this.v + this.d + this.e) % 10 === 0) registrar("ppt", this.v > this.d ? "vitoria" : this.v < this.d ? "derrota" : "empate");
+    this.mostrar();
+  },
+  mostrar() { const t = this.v + this.d + this.e; this.info.innerHTML = `<b>Você:</b> ${this.v} · <b>JARVIS:</b> ${this.d} · <b>Empates:</b> ${this.e}<br>${t ? `Você vence ${Math.round(100 * this.v / t)}% das rodadas.` : ""}<br><br>Cada 10 rodadas contam uma partida no placar.`; },
+};
+
+// ═══ REFLEXO ═════════════════════════════════════════════════════════════════
+const Reflexo = {
+  id: "reflexo", nome: "Reflexo", ic: "🎯", desc: "Acerte o máximo de alvos em 30 segundos.",
+  init(area, ctl) { ctl.append(botao("Começar", () => this.novo())); this.cv = el("canvas"); this.cv.width = 560; this.cv.height = 400; this.ctx = this.cv.getContext("2d"); area.append(this.cv);
+    this.cv.onpointerdown = e => { const r = this.cv.getBoundingClientRect(); this.tiro((e.clientX - r.left) * 560 / r.width, (e.clientY - r.top) * 400 / r.height); };
+    status("Clique em Começar."); this.limpar(); },
+  stop() { cancelAnimationFrame(this.raf); },
+  limpar() { const c = this.ctx; c.fillStyle = "#050c13"; c.fillRect(0, 0, 560, 400); },
+  novo() { cancelAnimationFrame(this.raf); this.pts = 0; this.erros = 0; this.alvos = []; this.fimEm = performance.now() + 30000; this.prox = 0; this.loop(); },
+  tiro(x, y) {
+    if (!this.fimEm) return; const i = this.alvos.findIndex(a => Math.hypot(a.x - x, a.y - y) < a.r);
+    if (i >= 0) { const a = this.alvos.splice(i, 1)[0]; this.pts += Math.round(60 - a.r); bip(900, 0.04); } else { this.erros++; this.pts = Math.max(0, this.pts - 5); bip(150, 0.05); }
+  },
+  loop() {
+    const t = performance.now(), rest = (this.fimEm - t) / 1000;
+    if (rest <= 0) { this.fimEm = 0; this.limpar(); status(`Tempo! ${this.pts} pontos.`, "bom"); registrar("reflexo", "", this.pts); return; }
+    if (t > this.prox) { this.alvos.push({ x: 40 + rnd(480), y: 40 + rnd(320), r: 34, nasc: t }); this.prox = t + 450 + rnd(400); }
+    this.alvos = this.alvos.filter(a => t - a.nasc < 2200); this.alvos.forEach(a => a.r = 34 - (t - a.nasc) / 2200 * 22);
+    this.limpar(); const c = this.ctx;
+    for (const a of this.alvos) for (const [k, cor] of [[1, "#ff5a5a"], [.66, "#fff"], [.33, "#ff5a5a"]]) { c.fillStyle = cor; c.beginPath(); c.arc(a.x, a.y, a.r * k, 0, 7); c.fill(); }
+    status(`⏱ ${rest.toFixed(1)}s · Pontos: ${this.pts}`); this.raf = requestAnimationFrame(() => this.loop());
+  },
+};
+
+// ═══ 2.5: CAÇA-PALAVRAS ══════════════════════════════════════════════════════
+const TEMAS_CACA = {
+  "Tecnologia": ["JARVIS", "ROBO", "CODIGO", "PYTHON", "TECLADO", "MONITOR", "INTERNET", "SENHA", "MOUSE", "SERVIDOR", "CABO", "PIXEL", "DADOS", "CHIP", "NUVEM"],
+  "Loja": ["MALHA", "MOLETOM", "CAMISETA", "ESTOQUE", "VENDA", "CLIENTE", "TECIDO", "ETIQUETA", "VITRINE", "CAIXA", "TROCO", "PROVADOR", "CABIDE", "PEDIDO", "ENTREGA"],
+  "Goiás": ["PEQUI", "GOIANIA", "CERRADO", "PAMONHA", "IPE", "ARAGUAIA", "PIRENOPOLIS", "GUARIROBA", "SERTANEJO", "BURITI", "EMPADAO", "CHAPADA", "RIO", "SERRA", "ANAPOLIS"],
+  "Games": ["ROBLOX", "FASE", "CHEFE", "PIXEL", "CONTROLE", "VIDA", "MOEDA", "MAPA", "MISSAO", "RANKING", "SKIN", "SPAWN", "COMBO", "LOBBY", "PONTOS"],
+  "Música": ["RAP", "BEAT", "RIMA", "BATIDA", "REFRAO", "MICROFONE", "FONE", "PALCO", "LETRA", "FLOW", "BAIXO", "GRAVE", "SAMPLE", "VINIL", "SHOW"],
+};
+const CacaPalavras = {
+  id: "cacapalavras", nome: "Caça-palavras", ic: "🔎", desc: "Ache as palavras escondidas: arraste da primeira à última letra.",
+  init(area, ctl) {
+    this.temaSel = el("select");
+    for (const t of Object.keys(TEMAS_CACA)) { const o = el("option", "", t); o.value = t; this.temaSel.appendChild(o); }
+    this.nivel = nivelSelect("medio", () => this.novo()); this.temaSel.onchange = () => this.novo();
+    ctl.append(this.temaSel, this.nivel, botao("Novo", () => this.novo()));
+    this.g = el("div", "caca"); this.lista = el("div", "palavras");
+    const info = lado("<b>Arraste</b> da primeira até a última letra (ou clique na primeira e depois na última). Vale na horizontal, na vertical e na diagonal; no médio e no difícil, também de trás para a frente.");
+    info.append(this.lista); area.append(this.g, info);
+    this.g.addEventListener("pointerdown", e => this.apertar(e));
+    this.g.addEventListener("pointermove", e => this.mover(e));
+    this.fimArrasto = () => this.soltar(); document.addEventListener("pointerup", this.fimArrasto);
+    this.novo();
+  },
+  stop() { clearInterval(this.relogio); document.removeEventListener("pointerup", this.fimArrasto); },
+  novo() {
+    clearInterval(this.relogio);
+    const nv = this.nivel.value, n = nv === "facil" ? 10 : nv === "medio" ? 12 : 14, qtd = nv === "facil" ? 6 : nv === "medio" ? 8 : 10;
+    const dirs = [[1, 0], [0, 1], [1, 1], [1, -1]].concat(nv === "facil" ? [] : [[-1, 0], [0, -1], [-1, -1], [-1, 1]]);
+    this.n = n; this.m = Array.from({ length: n }, () => Array(n).fill(""));
+    this.palavras = [];
+    for (const w of embaralhar(TEMAS_CACA[this.temaSel.value].filter(w => w.length <= n))) {
+      if (this.palavras.length >= qtd) break;
+      for (let t = 0; t < 300; t++) {
+        const [dx, dy] = dirs[rnd(dirs.length)], x = rnd(n), y = rnd(n), xf = x + dx * (w.length - 1), yf = y + dy * (w.length - 1);
+        if (xf < 0 || yf < 0 || xf >= n || yf >= n) continue;
+        let ok = true;
+        for (let i = 0; i < w.length; i++) { const c = this.m[y + dy * i][x + dx * i]; if (c && c !== w[i]) { ok = false; break; } }
+        if (!ok) continue;
+        for (let i = 0; i < w.length; i++) this.m[y + dy * i][x + dx * i] = w[i];
+        this.palavras.push({ w, x, y, dx, dy, achada: false, cor: 0 }); break;
+      }
+    }
+    const letras = "AAAABCDEEEEFGHIIIJLMNOOOOPQRRSSSTTUUUVXZ";
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (!this.m[y][x]) this.m[y][x] = letras[rnd(letras.length)];
+    this.ini = null; this.fimSel = null; this.arrastando = false; this.inicio = performance.now(); this.achadas = 0;
+    this.g.style.gridTemplateColumns = `repeat(${n}, auto)`;
+    this.desenhar(); this.relogio = setInterval(() => this.placarTxt(), 1000); this.placarTxt();
+  },
+  tempo() { const s = Math.floor((performance.now() - this.inicio) / 1000); return [s, `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`]; },
+  placarTxt() { status(`${this.achadas}/${this.palavras.length} palavras · ⏱ ${this.tempo()[1]}`); },
+  celulaDe(e) { const d = document.elementFromPoint(e.clientX, e.clientY); return d && d.parentNode === this.g ? [+d.dataset.x, +d.dataset.y] : null; },
+  apertar(e) {
+    const c = this.celulaDe(e); if (!c) return; e.preventDefault();
+    if (this.ini && !this.arrastando) { this.fimSel = c; this.conferir(); return; }      // segundo clique
+    this.ini = c; this.fimSel = c; this.arrastando = true; this.marcar();
+  },
+  mover(e) { if (!this.arrastando) return; const c = this.celulaDe(e); if (c) { this.fimSel = c; this.marcar(); } },
+  soltar() {
+    if (!this.arrastando) return; this.arrastando = false;
+    if (this.fimSel && (this.fimSel[0] !== this.ini[0] || this.fimSel[1] !== this.ini[1])) this.conferir(); else this.marcar();
+  },
+  linha() {
+    if (!this.ini || !this.fimSel) return [];
+    const [x0, y0] = this.ini, [x1, y1] = this.fimSel, dx = Math.sign(x1 - x0), dy = Math.sign(y1 - y0), len = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));
+    if (!(x0 === x1 || y0 === y1 || Math.abs(x1 - x0) === Math.abs(y1 - y0))) return [[x0, y0]];
+    return Array.from({ length: len + 1 }, (_, i) => [x0 + dx * i, y0 + dy * i]);
+  },
+  conferir() {
+    const cel = this.linha(), a0 = cel[0], a1 = cel[cel.length - 1];
+    const p = this.palavras.find(p => {
+      if (p.achada || cel.length !== p.w.length) return false;
+      const b0 = [p.x, p.y], b1 = [p.x + p.dx * (p.w.length - 1), p.y + p.dy * (p.w.length - 1)];
+      return (a0[0] === b0[0] && a0[1] === b0[1] && a1[0] === b1[0] && a1[1] === b1[1]) || (a0[0] === b1[0] && a0[1] === b1[1] && a1[0] === b0[0] && a1[1] === b0[1]);
+    });
+    if (p) {
+      p.achada = true; p.cor = (this.achadas * 47 + 190) % 360; this.achadas++; bip(700 + this.achadas * 40, 0.06, "triangle");
+      if (this.achadas === this.palavras.length) {
+        clearInterval(this.relogio); const [s, txt] = this.tempo();
+        status(`Achou todas em ${txt}! 🎉`, "bom"); registrar("cacapalavras", "vitoria", Math.max(10, 1000 - s * 2));
+      } else this.placarTxt();
+    } else if (cel.length > 1) bip(160, 0.06);
+    this.ini = null; this.fimSel = null; this.desenhar();
+  },
+  marcar() { const sel = new Set(this.linha().map(c => c.join(","))); for (const d of this.g.children) d.classList.toggle("marcando", sel.has(d.dataset.x + "," + d.dataset.y)); },
+  desenhar() {
+    const cor = {};
+    for (const p of this.palavras) if (p.achada) for (let i = 0; i < p.w.length; i++) cor[(p.x + p.dx * i) + "," + (p.y + p.dy * i)] = p.cor;
+    this.g.innerHTML = "";
+    for (let y = 0; y < this.n; y++) for (let x = 0; x < this.n; x++) {
+      const d = el("div", "", this.m[y][x]); d.dataset.x = x; d.dataset.y = y;
+      if (cor[x + "," + y] !== undefined) { d.classList.add("achada"); d.style.background = `hsl(${cor[x + "," + y]},85%,62%)`; }
+      this.g.appendChild(d);
+    }
+    this.lista.innerHTML = this.palavras.map(p => `<span class="${p.achada ? "ok" : ""}">${p.w}</span>`).join("");
+    this.marcar();
+  },
+};
+
+// ═══ 2.5: METEOROS ═══════════════════════════════════════════════════════════
+const TECLAS_NAVE = { ArrowLeft: "esq", a: "esq", ArrowRight: "dir", d: "dir", ArrowUp: "acel", w: "acel", " ": "tiro" };
+const Meteoros = {
+  id: "meteoros", nome: "Meteoros", ic: "☄️", desc: "Pilote a nave e destrua a chuva de meteoros. Setas e Espaço.",
+  init(area, ctl) {
+    ctl.append(botao("Novo", () => this.novo()));
+    this.cv = el("canvas"); this.cv.width = 640; this.cv.height = 480; this.ctx = this.cv.getContext("2d");
+    const caixa = el("div"); caixa.append(this.cv);
+    const t = el("div", "toque");
+    for (const [txt, k] of [["⟲", "esq"], ["▲", "acel"], ["⟳", "dir"], ["●", "tiro"]]) {
+      const b = el("button", "", txt);
+      b.onpointerdown = e => { e.preventDefault(); if (k === "tiro") this.atirar(); this.teclas.add(k); };
+      b.onpointerup = b.onpointerleave = () => this.teclas.delete(k); t.append(b);
+    }
+    caixa.append(t);
+    area.append(caixa, lado("<b>←/→</b> giram · <b>↑</b> acelera · <b>Espaço</b> atira (segure para rajada) · <b>P</b> pausa.<br>Meteoro grande vira dois médios; médio vira dois pequenos. Limpou o céu? Próximo nível."));
+    this.teclas = new Set();
+    const nome = e => TECLAS_NAVE[e.key.length === 1 ? e.key.toLowerCase() : e.key];
+    this.kd = e => { const k = nome(e); if (!k) return; if (k === "tiro" && !this.teclas.has("tiro")) this.atirar(); this.teclas.add(k); };
+    this.ku = e => { const k = nome(e); if (k) this.teclas.delete(k); };
+    document.addEventListener("keydown", this.kd); document.addEventListener("keyup", this.ku);
+    this.estrelas = Array.from({ length: 80 }, () => [rnd(640), rnd(480), Math.random()]);
+    this.novo();
+  },
+  stop() { cancelAnimationFrame(this.raf); document.removeEventListener("keydown", this.kd); document.removeEventListener("keyup", this.ku); },
+  tecla(k) { if (k === "p") this.pausa = !this.pausa; if (this.fim && k === " ") this.novo(); },
+  novo() {
+    cancelAnimationFrame(this.raf);
+    this.pts = 0; this.vidas = 3; this.nivel = 0; this.tiros = []; this.particulas = []; this.pausa = false; this.fim = false; this.ultTiro = 0;
+    this.nave(); this.proxNivel(); this.ultimo = performance.now(); this.loop();
+  },
+  nave() { this.s = { x: 320, y: 240, a: -Math.PI / 2, vx: 0, vy: 0, inv: 2.5 }; },
+  proxNivel() {
+    this.nivel++; this.rochas = [];
+    for (let i = 0; i < 2 + this.nivel; i++) {
+      let x, y; do { x = rnd(640); y = rnd(480); } while (Math.hypot(x - this.s.x, y - this.s.y) < 150);
+      this.rochas.push(this.rocha(x, y, 3));
+    }
+    status(`Nível ${this.nivel}!`, "bom");
+  },
+  rocha(x, y, tam) {
+    const r = [0, 14, 26, 44][tam], v = (0.9 + Math.random() * 1.1) * (1 + this.nivel * 0.08) * (4 - tam) * 0.55, a = Math.random() * 7;
+    const pontos = Array.from({ length: 11 }, (_, i) => { const ang = i / 11 * Math.PI * 2, k = 0.72 + Math.random() * 0.38; return [Math.cos(ang) * r * k, Math.sin(ang) * r * k]; });
+    return { x, y, tam, r, vx: Math.cos(a) * v, vy: Math.sin(a) * v, giro: (Math.random() - 0.5) * 0.04, ang: 0, pontos };
+  },
+  atirar() {
+    if (this.fim || this.pausa || this.tiros.length > 7) return;
+    const s = this.s; this.ultTiro = performance.now();
+    this.tiros.push({ x: s.x + Math.cos(s.a) * 14, y: s.y + Math.sin(s.a) * 14, vx: Math.cos(s.a) * 7.5 + s.vx, vy: Math.sin(s.a) * 7.5 + s.vy, vida: 58 });
+    bip(880, 0.03, "square", 0.03);
+  },
+  explodir(x, y, n, cor) { for (let i = 0; i < n; i++) { const a = Math.random() * 7, v = Math.random() * 3; this.particulas.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, vida: 30 + rnd(25), cor }); } },
+  loop() {
+    const agora = performance.now(), dt = Math.min(2.5, (agora - this.ultimo) / 16.67); this.ultimo = agora;
+    if (!this.pausa && !this.fim) this.passo(dt, agora);
+    this.desenhar(); this.raf = requestAnimationFrame(() => this.loop());
+  },
+  passo(dt, agora) {
+    const s = this.s, W = 640, H = 480, embrulha = o => { o.x = (o.x + W) % W; o.y = (o.y + H) % H; };
+    if (this.teclas.has("esq")) s.a -= 0.075 * dt;
+    if (this.teclas.has("dir")) s.a += 0.075 * dt;
+    if (this.teclas.has("tiro") && agora - this.ultTiro > 230) this.atirar();
+    if (this.teclas.has("acel")) {
+      s.vx += Math.cos(s.a) * 0.13 * dt; s.vy += Math.sin(s.a) * 0.13 * dt;
+      if (Math.random() < 0.6) this.particulas.push({ x: s.x - Math.cos(s.a) * 11, y: s.y - Math.sin(s.a) * 11, vx: -Math.cos(s.a) * 2 + Math.random() - 0.5, vy: -Math.sin(s.a) * 2 + Math.random() - 0.5, vida: 14, cor: "#ffb547" });
+    }
+    s.vx *= Math.pow(0.992, dt); s.vy *= Math.pow(0.992, dt);
+    const v = Math.hypot(s.vx, s.vy); if (v > 6) { s.vx *= 6 / v; s.vy *= 6 / v; }
+    s.x += s.vx * dt; s.y += s.vy * dt; embrulha(s); s.inv = Math.max(0, s.inv - dt / 60);
+    for (const t of this.tiros) { t.x += t.vx * dt; t.y += t.vy * dt; t.vida -= dt; embrulha(t); }
+    for (const r of this.rochas) { r.x += r.vx * dt; r.y += r.vy * dt; r.ang += r.giro * dt; embrulha(r); }
+    const novas = [];
+    for (const r of this.rochas) {
+      const t = this.tiros.find(t => t.vida > 0 && Math.hypot(t.x - r.x, t.y - r.y) < r.r);
+      if (t) {
+        t.vida = 0; r.morta = true; this.pts += [0, 100, 50, 20][r.tam];
+        this.explodir(r.x, r.y, 10 + r.tam * 5, "#d8f6ff"); bip(160 + r.tam * 40, 0.12, "sawtooth", 0.04);
+        if (r.tam > 1) novas.push(this.rocha(r.x, r.y, r.tam - 1), this.rocha(r.x, r.y, r.tam - 1));
+      } else if (!s.inv && Math.hypot(s.x - r.x, s.y - r.y) < r.r + 8) {
+        this.vidas--; this.explodir(s.x, s.y, 40, "#38d6ff"); bip(90, 0.5, "sawtooth", 0.07);
+        if (this.vidas <= 0) { this.fim = true; status(`Fim! ${this.pts} pontos. Espaço joga de novo.`, "aviso"); registrar("meteoros", "", this.pts); return; }
+        this.nave(); break;
+      }
+    }
+    this.rochas = this.rochas.filter(r => !r.morta).concat(novas);
+    this.tiros = this.tiros.filter(t => t.vida > 0);
+    for (const p of this.particulas) { p.x += p.vx * dt; p.y += p.vy * dt; p.vida -= dt; }
+    this.particulas = this.particulas.filter(p => p.vida > 0);
+    if (!this.rochas.length) { this.pts += 200; this.proxNivel(); }
+    else status(`Pontos: ${this.pts} · Vidas: ${"▲".repeat(this.vidas)} · Nível ${this.nivel}`);
+  },
+  desenhar() {
+    const c = this.ctx; c.fillStyle = "#03070c"; c.fillRect(0, 0, 640, 480);
+    for (const [x, y, b] of this.estrelas) { c.fillStyle = `rgba(200,230,255,${0.15 + b * 0.5})`; c.fillRect(x, y, 1.5, 1.5); }
+    c.lineWidth = 2; c.strokeStyle = "#9fb7c4";
+    for (const r of this.rochas) {
+      c.save(); c.translate(r.x, r.y); c.rotate(r.ang); c.beginPath();
+      r.pontos.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y)); c.closePath();
+      c.fillStyle = "#121c24"; c.fill(); c.stroke(); c.restore();
+    }
+    for (const p of this.particulas) { c.globalAlpha = Math.min(1, p.vida / 20); c.fillStyle = p.cor; c.fillRect(p.x, p.y, 2, 2); }
+    c.globalAlpha = 1; c.fillStyle = "#fff";
+    for (const t of this.tiros) { c.beginPath(); c.arc(t.x, t.y, 2.2, 0, 7); c.fill(); }
+    const s = this.s;
+    if (!this.fim && (!s.inv || Math.floor(s.inv * 10) % 2 === 0)) {
+      c.save(); c.translate(s.x, s.y); c.rotate(s.a); c.strokeStyle = "#38d6ff"; c.shadowColor = "#38d6ff"; c.shadowBlur = 12;
+      c.beginPath(); c.moveTo(14, 0); c.lineTo(-10, -9); c.lineTo(-6, 0); c.lineTo(-10, 9); c.closePath(); c.stroke(); c.restore(); c.shadowBlur = 0;
+    }
+    if (this.pausa || this.fim) {
+      c.fillStyle = "rgba(0,0,0,.5)"; c.fillRect(0, 0, 640, 480); c.fillStyle = "#d8f6ff"; c.font = "bold 28px Segoe UI"; c.textAlign = "center";
+      c.fillText(this.fim ? "FIM DE JOGO" : "PAUSA", 320, 240); c.textAlign = "left";
+    }
+  },
+};
+
+// ═══ 2.5: LABIRINTO DO BITINHO ═══════════════════════════════════════════════
+// Jogo original: o robô Bitinho junta energia num circuito gerado na hora e foge dos vírus.
+const DIRS4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+const Labirinto = {
+  id: "labirinto", nome: "Labirinto do Bitinho", ic: "🤖", desc: "Guie o robô Bitinho pelo circuito, junte a energia e fuja dos vírus.",
+  init(area, ctl) {
+    ctl.append(botao("Novo", () => this.novo()));
+    this.T = 28; this.C = 21; this.L = 15;
+    this.cv = el("canvas"); this.cv.width = this.C * this.T; this.cv.height = this.L * this.T; this.ctx = this.cv.getContext("2d");
+    area.append(this.cv, lado("<b>Setas</b>/WASD ou deslize. Junte todas as <b>células de energia</b> (pontinhos azuis). Os <b>vírus</b> vermelhos perseguem você. O <b>escudo</b> dourado congela os vírus por 6 s: encostar num vírus congelado apaga ele. <b>P</b> pausa."));
+    this.novo();
+  },
+  stop() { cancelAnimationFrame(this.raf); },
+  novo() { cancelAnimationFrame(this.raf); this.pts = 0; this.vidas = 3; this.fase = 0; this.fim = false; this.pausa = false; this.proxFase(); this.ultimo = performance.now(); this.loop(); },
+  gerar() {
+    const C = this.C, L = this.L, m = Array.from({ length: L }, () => Array(C).fill(1)), pilha = [[1, 1]];
+    m[1][1] = 0;
+    while (pilha.length) {
+      const [x, y] = pilha[pilha.length - 1];
+      const viz = embaralhar([[2, 0], [-2, 0], [0, 2], [0, -2]]).filter(([dx, dy]) => { const nx = x + dx, ny = y + dy; return nx > 0 && ny > 0 && nx < C - 1 && ny < L - 1 && m[ny][nx] === 1; });
+      if (!viz.length) { pilha.pop(); continue; }
+      const [dx, dy] = viz[0]; m[y + dy / 2][x + dx / 2] = 0; m[y + dy][x + dx] = 0; pilha.push([x + dx, y + dy]);
+    }
+    for (let y = 1; y < L - 1; y += 2) for (let x = 1; x < C - 1; x += 2) {         // sem becos: sempre dá para fugir
+      const abertos = DIRS4.filter(([dx, dy]) => m[y + dy][x + dx] === 0).length;
+      if (abertos === 1 || Math.random() < 0.1) {
+        const op = embaralhar(DIRS4.slice()).find(([dx, dy]) => m[y + dy][x + dx] === 1 && x + dx * 2 > 0 && y + dy * 2 > 0 && x + dx * 2 < C - 1 && y + dy * 2 < L - 1);
+        if (op) m[y + op[1]][x + op[0]] = 0;
+      }
+    }
+    return m;
+  },
+  livre(x, y) { return x >= 0 && y >= 0 && x < this.C && y < this.L && this.m[y][x] === 0; },
+  ent(x, y, vel) { return { cx: x, cy: y, nx: x, ny: y, t: 0, dir: [0, 0], quer: [0, 0], vel }; },
+  posicoes() {
+    this.bit = this.ent(1, 1, 6.2); this.bit.quer = [1, 0];
+    const cantos = [[this.C - 2, this.L - 2], [this.C - 2, 1], [1, this.L - 2], [11, 7], [this.C - 2, 7]];
+    const n = Math.min(5, 1 + this.fase), vel = Math.min(6.0, 3.9 + this.fase * 0.35);
+    this.virus = cantos.slice(0, n).map(([x, y], i) => Object.assign(this.ent(x, y, vel), { casa: [x, y], esperto: i % 2 === 0, morto: 0 }));
+    this.congelado = 0; this.espera = performance.now() + 900;
+  },
+  proxFase() {
+    this.fase++; this.m = this.gerar(); this.energia = new Set(); this.escudos = new Set();
+    for (let y = 0; y < this.L; y++) for (let x = 0; x < this.C; x++) if (this.m[y][x] === 0 && !(x === 1 && y === 1)) this.energia.add(x + "," + y);
+    const longe = [...this.energia].filter(k => { const [x, y] = k.split(",").map(Number); return x + y > 8; });
+    for (const k of embaralhar(longe).slice(0, 4)) { this.energia.delete(k); this.escudos.add(k); }
+    this.vias = Array.from({ length: 40 }, () => [rnd(this.C), rnd(this.L)]).filter(([x, y]) => this.m[y][x] === 1);
+    this.posicoes(); status(`Fase ${this.fase}!`, "bom");
+  },
+  tecla(k) {
+    if (k === "p") { this.pausa = !this.pausa; return; }
+    if (this.fim && k === " ") return this.novo();
+    const d = { ArrowUp: [0, -1], w: [0, -1], ArrowDown: [0, 1], s: [0, 1], ArrowLeft: [-1, 0], a: [-1, 0], ArrowRight: [1, 0], d: [1, 0] }[k];
+    if (!d) return;
+    const b = this.bit; b.quer = d;
+    if (b.dir[0] === -d[0] && b.dir[1] === -d[1] && (d[0] || d[1])) {                 // meia-volta na hora
+      [b.cx, b.cy, b.nx, b.ny] = [b.nx, b.ny, b.cx, b.cy]; b.t = 1 - b.t; b.dir = d;
+    }
+  },
+  escolherBit(e) {
+    if (this.livre(e.cx + e.quer[0], e.cy + e.quer[1])) return e.quer;
+    if (this.livre(e.cx + e.dir[0], e.cy + e.dir[1])) return e.dir;
+    return [0, 0];
+  },
+  escolherVirus(v) {
+    if (performance.now() < this.congelado) return [0, 0];
+    let ops = DIRS4.filter(([dx, dy]) => this.livre(v.cx + dx, v.cy + dy));
+    const semVolta = ops.filter(([dx, dy]) => !(dx === -v.dir[0] && dy === -v.dir[1]));
+    if (semVolta.length) ops = semVolta;
+    if (!ops.length) return [0, 0];
+    if (Math.random() < Math.max(0.08, 0.28 - this.fase * 0.03)) return ops[rnd(ops.length)];
+    const b = this.bit, alvo = v.esperto ? [b.cx + b.dir[0] * 3, b.cy + b.dir[1] * 3] : [b.cx, b.cy];
+    return ops.reduce((m, d) => ((v.cx + d[0] - alvo[0]) ** 2 + (v.cy + d[1] - alvo[1]) ** 2 < (v.cx + m[0] - alvo[0]) ** 2 + (v.cy + m[1] - alvo[1]) ** 2 ? d : m));
+  },
+  mover(e, dt, escolher) {
+    if (e.nx === e.cx && e.ny === e.cy) { const d = escolher(e); e.dir = d; e.nx = e.cx + d[0]; e.ny = e.cy + d[1]; if (!d[0] && !d[1]) { e.t = 0; return; } }
+    e.t += e.vel * dt;
+    for (let g = 0; e.t >= 1 && g < 3; g++) {
+      e.t -= 1; e.cx = e.nx; e.cy = e.ny;
+      const d = escolher(e); e.dir = d; e.nx = e.cx + d[0]; e.ny = e.cy + d[1];
+      if (!d[0] && !d[1]) { e.t = 0; break; }
+    }
+  },
+  pos(e) { return [e.cx + (e.nx - e.cx) * e.t, e.cy + (e.ny - e.cy) * e.t]; },
+  loop() {
+    const agora = performance.now(), dt = Math.min(0.05, (agora - this.ultimo) / 1000); this.ultimo = agora;
+    if (!this.pausa && !this.fim && agora > this.espera) this.passo(dt, agora);
+    this.desenhar(agora); this.raf = requestAnimationFrame(() => this.loop());
+  },
+  passo(dt, agora) {
+    const b = this.bit;
+    this.mover(b, dt, e => this.escolherBit(e));
+    const [bx, by] = this.pos(b), k = Math.round(bx) + "," + Math.round(by);
+    if (this.energia.delete(k)) { this.pts += 10; if (this.energia.size % 3 === 0) bip(1200, 0.02, "triangle", 0.03); }
+    if (this.escudos.delete(k)) { this.pts += 50; this.congelado = agora + 6000; bip(520, 0.25, "triangle", 0.06); status("Vírus congelados: apague eles!", "bom"); }
+    for (const v of this.virus) {
+      if (v.morto) { if (agora > v.morto) { Object.assign(v, this.ent(v.casa[0], v.casa[1], v.vel)); v.morto = 0; } continue; }
+      this.mover(v, dt, e => this.escolherVirus(e));
+      const [vx, vy] = this.pos(v);
+      if (Math.hypot(vx - bx, vy - by) < 0.62) {
+        if (agora < this.congelado) { v.morto = agora + 5000; this.pts += 200; bip(1400, 0.12, "square", 0.05); }
+        else {
+          this.vidas--; bip(110, 0.6, "sawtooth", 0.07);
+          if (this.vidas <= 0) { this.fim = true; status(`Fim! ${this.pts} pontos. Espaço joga de novo.`, "aviso"); registrar("labirinto", "", this.pts); return; }
+          status("Pego por um vírus!", "ruim"); this.posicoes(); return;
+        }
+      }
+    }
+    if (!this.energia.size) { this.pts += 500; bip(880, 0.3, "triangle", 0.06); this.proxFase(); return; }
+    if (agora > this.congelado || Math.floor(agora / 500) % 4 === 0)
+      status(`Fase ${this.fase} · Pontos: ${this.pts} · Vidas: ${"♥".repeat(this.vidas)} · Energia: ${this.energia.size}`);
+  },
+  desenhar(agora) {
+    const c = this.ctx, T = this.T, t = agora / 1000;
+    c.fillStyle = "#03070c"; c.fillRect(0, 0, this.cv.width, this.cv.height);
+    for (let y = 0; y < this.L; y++) for (let x = 0; x < this.C; x++) {
+      if (this.m[y][x] !== 1) continue;
+      c.fillStyle = "#0f3043"; c.fillRect(x * T, y * T, T, T);
+      c.strokeStyle = "rgba(56,214,255,.6)"; c.lineWidth = 1.5;
+      for (const [dx, dy] of DIRS4) if (this.livre(x + dx, y + dy)) {                 // borda brilhante virada para o caminho
+        c.beginPath();
+        if (dx) { const xx = x * T + (dx > 0 ? T - 1 : 1); c.moveTo(xx, y * T); c.lineTo(xx, y * T + T); }
+        else { const yy = y * T + (dy > 0 ? T - 1 : 1); c.moveTo(x * T, yy); c.lineTo(x * T + T, yy); }
+        c.stroke();
+      }
+    }
+    c.fillStyle = "rgba(127,230,255,.45)";
+    for (const [x, y] of this.vias) { c.beginPath(); c.arc(x * T + T / 2, y * T + T / 2, 2.5, 0, 7); c.fill(); }
+    c.fillStyle = "#7fe6ff"; c.shadowColor = "#38d6ff"; c.shadowBlur = 8;
+    for (const k of this.energia) { const [x, y] = k.split(",").map(Number); c.beginPath(); c.arc(x * T + T / 2, y * T + T / 2, 3, 0, 7); c.fill(); }
+    c.shadowColor = "#ffb547";
+    for (const k of this.escudos) {
+      const [x, y] = k.split(",").map(Number), r = 8 + Math.sin(t * 5) * 1.5;
+      c.fillStyle = "#ffb547"; c.beginPath();
+      for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3 + Math.PI / 6; c.lineTo(x * T + T / 2 + Math.cos(a) * r, y * T + T / 2 + Math.sin(a) * r); }
+      c.closePath(); c.fill(); c.fillStyle = "#3a2600"; c.fillRect(x * T + T / 2 - 1.5, y * T + T / 2 - 4, 3, 8);
+    }
+    c.shadowBlur = 0;
+    const frio = agora < this.congelado, piscando = frio && this.congelado - agora < 1500 && Math.floor(t * 8) % 2 === 0;
+    for (const v of this.virus) {
+      if (v.morto) continue;
+      const [vx, vy] = this.pos(v), cx = vx * T + T / 2, cy = vy * T + T / 2;
+      c.save(); c.translate(cx, cy); c.rotate(frio ? 0 : t * 2.5);
+      c.fillStyle = frio && !piscando ? "#7da7c4" : "#ff4d5e"; c.shadowColor = c.fillStyle; c.shadowBlur = 10; c.beginPath();
+      for (let i = 0; i < 20; i++) { const a = i * Math.PI / 10, r = i % 2 ? T * 0.24 : T * 0.4; c.lineTo(Math.cos(a) * r, Math.sin(a) * r); }
+      c.closePath(); c.fill(); c.restore(); c.shadowBlur = 0;
+      c.fillStyle = "#1a0006"; c.fillRect(cx - 6, cy - 3, 4, 2); c.fillRect(cx + 2, cy - 3, 4, 2);               // olhos de fenda
+      if (!frio && Math.floor(t * 6 + vx) % 5 === 0) { c.fillStyle = "rgba(255,77,94,.6)"; c.fillRect(cx + T * 0.3, cy - T * 0.2, 4, 3); }   // "glitch"
+    }
+    const [bx, by] = this.pos(this.bit), x = bx * T + T / 2, y = by * T + T / 2 + Math.sin(t * 8) * 1.2, d = this.bit.dir;
+    c.strokeStyle = "#d8f6ff"; c.lineWidth = 2; c.beginPath(); c.moveTo(x, y - T * 0.32); c.lineTo(x, y - T * 0.5); c.stroke();
+    c.fillStyle = Math.floor(t * 3) % 2 ? "#3dffa0" : "#ffb547"; c.beginPath(); c.arc(x, y - T * 0.52, 2.5, 0, 7); c.fill();
+    c.fillStyle = "#38d6ff"; c.shadowColor = "#38d6ff"; c.shadowBlur = 12; c.beginPath(); c.arc(x, y, T * 0.36, 0, 7); c.fill(); c.shadowBlur = 0;
+    c.fillStyle = "#052030"; c.beginPath(); c.roundRect ? c.roundRect(x - T * 0.24, y - T * 0.12, T * 0.48, T * 0.2, 4) : c.rect(x - T * 0.24, y - T * 0.12, T * 0.48, T * 0.2); c.fill();
+    c.fillStyle = "#bff7ff"; for (const o of [-1, 1]) { c.beginPath(); c.arc(x + o * T * 0.1 + d[0] * 2, y - T * 0.02 + d[1] * 1.5, 2.2, 0, 7); c.fill(); }
+    if (this.pausa || this.fim) {
+      c.fillStyle = "rgba(0,0,0,.55)"; c.fillRect(0, 0, this.cv.width, this.cv.height); c.fillStyle = "#d8f6ff";
+      c.font = "bold 26px Segoe UI"; c.textAlign = "center"; c.fillText(this.fim ? "FIM DE JOGO" : "PAUSA", this.cv.width / 2, this.cv.height / 2); c.textAlign = "left";
+    }
+  },
+};
+
+// ═══ 2.5: SUDOKU ═════════════════════════════════════════════════════════════
+const Sudoku = {
+  id: "sudoku", nome: "Sudoku", ic: "🔢", desc: "Complete a grade: de 1 a 9 em cada linha, coluna e quadrado.",
+  init(area, ctl) {
+    this.nv = nivelSelect("medio", () => this.novo());
+    ctl.append(this.nv, botao("Novo", () => this.novo()), botao("Dica", () => this.dica()), botao("Apagar", () => this.por(0)));
+    this.g = el("div", "sudoku"); const pad = el("div", "numeros");
+    for (let n = 1; n <= 9; n++) pad.append(botao(String(n), () => this.por(n)));
+    const col = el("div"); col.append(this.g, pad);
+    area.append(col, lado("Clique numa casa e digite o número (ou use os botões). <b>Setas</b> andam, <b>Delete</b> apaga.<br>Em <b style='color:var(--verm)'>vermelho</b>: número repetido na linha, coluna ou quadrado."));
+    this.novo();
+  },
+  stop() { clearInterval(this.relogio); },
+  opcoes(g, i) {
+    const r = Math.floor(i / 9), c = i % 9, usado = new Set(), br = r - r % 3, bc = c - c % 3;
+    for (let k = 0; k < 9; k++) { usado.add(g[r * 9 + k]); usado.add(g[k * 9 + c]); }
+    for (let a = 0; a < 3; a++) for (let b = 0; b < 3; b++) usado.add(g[(br + a) * 9 + bc + b]);
+    const o = []; for (let n = 1; n <= 9; n++) if (!usado.has(n)) o.push(n); return o;
+  },
+  // preenche g (aleatório) ou conta soluções até `limite`
+  resolver(g, contar = false, limite = 2) {
+    let sols = 0;
+    const rec = () => {
+      let melhor = -1, ops = null;
+      for (let i = 0; i < 81; i++) if (!g[i]) { const o = this.opcoes(g, i); if (!o.length) return false; if (!ops || o.length < ops.length) { melhor = i; ops = o; if (o.length === 1) break; } }
+      if (melhor < 0) { sols++; return !contar || sols >= limite; }
+      for (const n of (contar ? ops : embaralhar(ops))) { g[melhor] = n; if (rec()) return true; }
+      g[melhor] = 0; return false;
+    };
+    const ok = rec(); return contar ? sols : ok;
+  },
+  novo() {
+    clearInterval(this.relogio);
+    const g = Array(81).fill(0); this.resolver(g); this.sol = g.slice();
+    const alvo = { facil: 38, medio: 31, dificil: 26 }[this.nv.value] || 31, p = g.slice();
+    for (const i of embaralhar([...Array(81).keys()])) {
+      if (p.filter(Boolean).length <= alvo) break;
+      const v = p[i]; p[i] = 0; if (this.resolver(p.slice(), true) !== 1) p[i] = v;               // só tira se continuar com UMA solução
+    }
+    this.fixo = p.map(Boolean); this.v = p; this.sel = this.fixo.indexOf(false); this.dicas = 0; this.feito = false; this.inicio = performance.now();
+    this.desenhar(); this.relogio = setInterval(() => this.placar(), 1000); this.placar();
+  },
+  placar() { if (this.feito) return; const s = Math.floor((performance.now() - this.inicio) / 1000); status(`⏱ ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")} · Faltam ${this.v.filter(x => !x).length} · Dicas: ${this.dicas}`); },
+  conflitos() {
+    const ruins = new Set();
+    for (let i = 0; i < 81; i++) {
+      if (!this.v[i]) continue;
+      const r = Math.floor(i / 9), c = i % 9;
+      for (let j = 0; j < 81; j++) {
+        if (j === i || this.v[j] !== this.v[i]) continue;
+        const r2 = Math.floor(j / 9), c2 = j % 9;
+        if (r === r2 || c === c2 || (Math.floor(r / 3) === Math.floor(r2 / 3) && Math.floor(c / 3) === Math.floor(c2 / 3))) ruins.add(i);
+      }
+    }
+    return ruins;
+  },
+  por(n) {
+    if (this.feito || this.sel < 0 || this.fixo[this.sel]) return;
+    this.v[this.sel] = n; bip(n ? 500 + n * 40 : 200, 0.03);
+    if (this.v.every((x, i) => x === this.sol[i])) {
+      this.feito = true; clearInterval(this.relogio); const s = Math.floor((performance.now() - this.inicio) / 1000);
+      status(`Resolvido em ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}${this.dicas ? ` com ${this.dicas} dica(s)` : ""}! 🎉`, "bom");
+      registrar("sudoku", "vitoria", Math.max(10, 3000 - s - this.dicas * 150)); bip(880, 0.3, "triangle");
+    } else this.placar();
+    this.desenhar();
+  },
+  dica() {
+    if (this.feito) return;
+    const vazias = [...Array(81).keys()].filter(i => !this.fixo[i] && this.v[i] !== this.sol[i]); if (!vazias.length) return;
+    const i = vazias.includes(this.sel) ? this.sel : vazias[rnd(vazias.length)]; this.sel = i; this.dicas++; this.por(this.sol[i]);
+  },
+  tecla(k) {
+    if (/^[1-9]$/.test(k)) return this.por(+k);
+    if (["Backspace", "Delete", "0"].includes(k)) return this.por(0);
+    const d = { ArrowUp: -9, ArrowDown: 9, ArrowLeft: -1, ArrowRight: 1 }[k];
+    if (d !== undefined && this.sel >= 0) { this.sel = (this.sel + d + 81) % 81; this.desenhar(); }
+  },
+  desenhar() {
+    const ruins = this.conflitos(), s = this.sel, rs = Math.floor(s / 9), cs = s % 9, vs = s >= 0 ? this.v[s] : 0;
+    this.g.innerHTML = "";
+    for (let i = 0; i < 81; i++) {
+      const r = Math.floor(i / 9), c = i % 9, d = el("div", "", this.v[i] || "");
+      if (this.fixo[i]) d.classList.add("fixo");
+      if (c % 3 === 2 && c < 8) d.classList.add("bd");
+      if (r % 3 === 2 && r < 8) d.classList.add("bb");
+      if (i === s) d.classList.add("sel");
+      else if (vs && this.v[i] === vs) d.classList.add("mesmo");
+      else if (s >= 0 && (r === rs || c === cs || (Math.floor(r / 3) === Math.floor(rs / 3) && Math.floor(c / 3) === Math.floor(cs / 3)))) d.classList.add("viz");
+      if (ruins.has(i)) d.classList.add("erro");
+      d.onclick = () => { this.sel = i; this.desenhar(); };
+      this.g.appendChild(d);
+    }
+  },
+};
+
+// ═══ 2.5: PONG ═══════════════════════════════════════════════════════════════
+const Pong = {
+  id: "pong", nome: "Pong", ic: "🏓", desc: "Contra o JARVIS. Mouse, toque ou W/S. Quem fizer 7 ganha.",
+  init(area, ctl) {
+    this.nv = nivelSelect("medio"); ctl.append(this.nv, botao("Novo", () => this.novo()));
+    this.cv = el("canvas"); this.cv.width = 640; this.cv.height = 400; this.ctx = this.cv.getContext("2d");
+    area.append(this.cv, lado("Sua raquete é a da <b>esquerda</b>. <b>Mouse</b>/toque ou <b>W/S</b> e setas. <b>Espaço</b> ou clique saca. Bater na ponta da raquete deixa a bola mais inclinada."));
+    const mover = y => { const r = this.cv.getBoundingClientRect(); this.py = (y - r.top) * 400 / r.height - 40; };
+    this.cv.onpointermove = e => mover(e.clientY);
+    this.cv.ontouchmove = e => { mover(e.touches[0].clientY); e.preventDefault(); };
+    this.cv.onclick = () => this.sacar();
+    this.teclas = new Set();
+    const nome = e => (e.key.length === 1 ? e.key.toLowerCase() : e.key);
+    this.kd = e => { const k = nome(e); if (["w", "s", "ArrowUp", "ArrowDown"].includes(k)) this.teclas.add(k); };
+    this.ku = e => this.teclas.delete(nome(e));
+    document.addEventListener("keydown", this.kd); document.addEventListener("keyup", this.ku);
+    this.novo();
+  },
+  stop() { cancelAnimationFrame(this.raf); document.removeEventListener("keydown", this.kd); document.removeEventListener("keyup", this.ku); },
+  tecla(k) { if (k === " ") this.sacar(); },
+  novo() { cancelAnimationFrame(this.raf); this.pj = 0; this.pa = 0; this.py = 160; this.ay = 160; this.fim = false; this.erroIA = 0; this.centro(1); this.ultimo = performance.now(); this.loop(); },
+  centro(dir) { this.bx = 320; this.by = 200; this.vx = 0; this.vy = 0; this.dir = dir; this.parada = true; status(`Você ${this.pj} × ${this.pa} JARVIS · Espaço ou clique para sacar`); },
+  sacar() {
+    if (this.fim) return this.novo();
+    if (!this.parada) return;
+    this.parada = false; const a = (Math.random() - 0.5) * 0.8, v = 5.4;
+    this.vx = Math.cos(a) * v * this.dir; this.vy = Math.sin(a) * v;
+  },
+  loop() {
+    const agora = performance.now(), dt = Math.min(2.5, (agora - this.ultimo) / 16.67); this.ultimo = agora;
+    if (!this.fim) this.passo(dt);
+    this.desenhar(); this.raf = requestAnimationFrame(() => this.loop());
+  },
+  passo(dt) {
+    if (this.teclas.has("w") || this.teclas.has("ArrowUp")) this.py -= 7 * dt;
+    if (this.teclas.has("s") || this.teclas.has("ArrowDown")) this.py += 7 * dt;
+    this.py = Math.max(0, Math.min(320, this.py));
+    const nivel = this.nv.value, vmax = { facil: 3.3, medio: 4.7, dificil: 6.6 }[nivel] || 4.7;
+    if (this.vx > 0 && Math.random() < 0.02) this.erroIA = (Math.random() - 0.5) * ({ facil: 90, medio: 55, dificil: 25 }[nivel] || 55);
+    const alvo = (this.vx > 0 ? this.by + this.erroIA : 200) - 40;
+    this.ay += Math.max(-vmax * dt, Math.min(vmax * dt, alvo - this.ay)); this.ay = Math.max(0, Math.min(320, this.ay));
+    if (this.parada) { this.by = 200; this.bx = 320; return; }
+    this.bx += this.vx * dt; this.by += this.vy * dt;
+    if (this.by < 6 && this.vy < 0 || this.by > 394 && this.vy > 0) { this.vy *= -1; bip(420, 0.02); }
+    const bater = (x, y, lado) => {
+      if (this.by > y - 6 && this.by < y + 86 && Math.abs(this.bx - x) < 10 && Math.sign(this.vx) === lado) {
+        const rel = (this.by - (y + 40)) / 46, v = Math.min(13, Math.hypot(this.vx, this.vy) * 1.05);
+        this.vx = -lado * v * Math.cos(rel * 0.9); this.vy = v * Math.sin(rel * 0.9); bip(lado < 0 ? 620 : 520, 0.03);
+      }
+    };
+    bater(26, this.py, -1); bater(614, this.ay, 1);
+    if (this.bx < -10 || this.bx > 650) {
+      const voce = this.bx > 650; voce ? this.pj++ : this.pa++; bip(voce ? 880 : 160, 0.2, voce ? "triangle" : "sawtooth");
+      if (this.pj >= 7 || this.pa >= 7) {
+        this.fim = true; const ganhou = this.pj > this.pa;
+        status(ganhou ? `Você ganhou de ${this.pj} × ${this.pa}! 🏆 (Espaço joga de novo)` : `O JARVIS ganhou de ${this.pa} × ${this.pj}. (Espaço joga de novo)`, ganhou ? "bom" : "aviso");
+        registrar("pong", ganhou ? "vitoria" : "derrota"); return;
+      }
+      this.centro(voce ? 1 : -1);
+    }
+  },
+  desenhar() {
+    const c = this.ctx; c.fillStyle = "#03070c"; c.fillRect(0, 0, 640, 400);
+    c.strokeStyle = "rgba(56,214,255,.25)"; c.setLineDash([8, 10]); c.beginPath(); c.moveTo(320, 0); c.lineTo(320, 400); c.stroke(); c.setLineDash([]);
+    c.fillStyle = "rgba(216,246,255,.18)"; c.font = "bold 64px Segoe UI"; c.textAlign = "center"; c.fillText(this.pj, 250, 80); c.fillText(this.pa, 390, 80);
+    c.font = "12px Segoe UI"; c.fillText("VOCÊ", 250, 100); c.fillText("JARVIS", 390, 100); c.textAlign = "left";
+    c.shadowBlur = 14; c.shadowColor = "#38d6ff"; c.fillStyle = "#38d6ff"; c.fillRect(16, this.py, 10, 80);
+    c.shadowColor = "#ffb547"; c.fillStyle = "#ffb547"; c.fillRect(614, this.ay, 10, 80);
+    c.shadowColor = "#fff"; c.fillStyle = "#fff"; c.beginPath(); c.arc(this.bx, this.by, 7, 0, 7); c.fill(); c.shadowBlur = 0;
+  },
+};
+
+// ═══ menu e navegação ════════════════════════════════════════════════════════
+const JOGOS = [Xadrez, Damas, Velha, Lig4, Minas, J2048, Cobrinha, Tetris, Breakout, Memoria, Forca, Genius, PPT, Reflexo,
+               CacaPalavras, Meteoros, Labirinto, Sudoku, Pong];                     // 2.5: +5 jogos
+function menu() {
+  if (atual && atual.stop) atual.stop(); atual = null;
+  $("#jogo").style.display = "none"; $("#voltar").style.display = "none"; $("#menu").style.display = "";
+  const m = $("#menu"); m.innerHTML = "";
+  for (const j of JOGOS) {
+    const c = el("div", "cartao"); c.innerHTML = `<div class="ic">${j.ic}</div><h3>${j.nome}</h3><p>${j.desc}</p><span class="rec">${textoPlacar(j.id)}</span>`;
+    c.onclick = () => abrir(j.id); m.appendChild(c);
+  }
+  if (location.hash) history.replaceState(null, "", location.pathname + location.search);
+}
+function abrir(id) {
+  const j = JOGOS.find(x => x.id === id); if (!j) return menu();
+  if (atual && atual.stop) atual.stop();
+  $("#menu").style.display = "none"; $("#jogo").style.display = "block"; $("#voltar").style.display = "";
+  $("#nomeJogo").textContent = j.ic + "  " + j.nome.toUpperCase(); $("#controles").innerHTML = ""; $("#area").innerHTML = ""; status("");
+  atual = j; j.init($("#area"), $("#controles"));
+  history.replaceState(null, "", location.pathname + location.search + "#" + id);
+}
+$("#voltar").onclick = () => { carregarPlacar().then(menu); };
+$("#som").onclick = () => { somLigado = !somLigado; $("#som").textContent = somLigado ? "🔊" : "🔇"; try { localStorage.setItem("arcade_som", somLigado ? "1" : "0"); } catch (e) {} };
+$("#som").textContent = somLigado ? "🔊" : "🔇";
+carregarPlacar().then(() => { const h = location.hash.slice(1); h ? abrir(h) : menu(); });
+</script>
+</body>
+</html>

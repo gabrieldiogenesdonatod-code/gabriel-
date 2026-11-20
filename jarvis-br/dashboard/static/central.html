@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JARVIS · Central</title>
+<!-- Fork PT-BR 1.8: Central remota — câmeras ao vivo, tela do PC e aparelhos, de qualquer lugar. -->
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#04070d;--hud:#38d6ff;--hud2:rgba(56,214,255,.18);--hud3:rgba(56,214,255,.06);--texto:#d8f6ff;--mudo:#5f8597;
+ --ouro:#ffb547;--verm:#ff5a5a;--verde:#3dffa0}
+html,body{background:radial-gradient(circle at 50% 0%,#0b1a26 0%,var(--bg) 65%) fixed;color:var(--texto);
+ font-family:'Segoe UI',-apple-system,sans-serif;min-height:100%}
+header{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--hud3)}
+.titulo{letter-spacing:5px;font-weight:700;color:var(--hud);font-size:14px;flex:1}
+header a{color:var(--mudo);text-decoration:none;font-size:13px;border:1px solid var(--hud2);padding:6px 10px;border-radius:10px}
+nav{display:flex;gap:6px;padding:10px 16px;overflow-x:auto}
+nav button,button{font:inherit;color:var(--texto);background:var(--hud3);border:1px solid var(--hud2);border-radius:10px;padding:8px 12px;cursor:pointer;white-space:nowrap}
+nav button.ativo{background:rgba(56,214,255,.2);border-color:var(--hud)}
+button:active{transform:scale(.97)}
+button.perigo{border-color:rgba(255,90,90,.45);color:#ffb3b3}
+main{padding:6px 16px 40px;max-width:900px;margin:0 auto}
+section{display:none}section.ativa{display:block}
+.visor{position:relative;background:#000;border:1px solid var(--hud2);border-radius:14px;overflow:hidden;aspect-ratio:16/9;display:flex;align-items:center;justify-content:center}
+.visor img{width:100%;height:100%;object-fit:contain}
+.visor .info{position:absolute;left:10px;top:8px;font-size:11px;color:var(--hud);background:rgba(0,0,0,.5);padding:3px 8px;border-radius:8px}
+.visor .aovivo::before{content:"● ";color:var(--verm)}
+.msg{color:var(--mudo);font-size:14px;text-align:center;padding:20px}
+.linha{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0;align-items:center}
+select,input{font:inherit;color:var(--texto);background:#08131c;border:1px solid var(--hud2);border-radius:10px;padding:8px 10px}
+input{flex:1;min-width:120px}
+.aparelho{border:1px solid var(--hud2);border-radius:14px;padding:12px;margin-bottom:12px;background:var(--hud3)}
+.aparelho h3{font-size:15px;display:flex;justify-content:space-between;gap:8px}
+.aparelho h3 span{font-size:11px;color:var(--mudo);font-weight:400}
+.botoes{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.botoes button{padding:8px 10px;font-size:13px}
+.ctrl{display:grid;grid-template-columns:repeat(3,52px);gap:6px;margin-top:10px}
+.ctrl button{padding:10px 0}
+#toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%) translateY(120px);background:#0c1c28;border:1px solid var(--hud);
+ border-radius:12px;padding:10px 14px;max-width:92vw;font-size:14px;transition:transform .25s;z-index:5}
+#toast.show{transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+<header><div class="titulo">🛰 CENTRAL</div><a href="/monitor">📊</a><a href="/">‹ Voltar</a></header>
+<nav>
+ <button data-aba="cameras" class="ativo">📷 Câmeras</button>
+ <button data-aba="tela">🖥 Tela do PC</button>
+ <button data-aba="aparelhos">📺 Aparelhos</button>
+</nav>
+<main>
+ <section id="cameras" class="ativa">
+  <div class="linha"><select id="camSel"></select><button id="camPausa">⏸ Pausar</button><button id="camFoto">📸 Salvar foto</button></div>
+  <div class="visor" id="camVisor"><img id="camImg" alt=""><span class="info aovivo" id="camInfo">ao vivo</span></div>
+  <p class="msg" id="camMsg"></p>
+ </section>
+ <section id="tela">
+  <div class="linha"><button id="telaPausa">⏸ Pausar</button><button id="telaFoto">📸 Salvar print</button></div>
+  <div class="visor"><img id="telaImg" alt=""><span class="info aovivo">tela do PC</span></div>
+  <p class="msg" id="telaMsg"></p>
+ </section>
+ <section id="aparelhos"><div id="listaAparelhos" class="msg">Carregando…</div></section>
+</main>
+<div id="toast"></div>
+<script>
+"use strict";
+const token = sessionStorage.getItem('jarvis_token');
+if (!token) location.replace('/login');
+const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function toast(m) { const t = document.getElementById('toast'); t.textContent = m; t.classList.add('show'); clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 4500); }
+async function api(url, opts = {}) {
+  opts.headers = Object.assign({'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json'}, opts.headers || {});
+  const r = await fetch(url, opts);
+  if (r.status === 401) { sessionStorage.clear(); location.replace('/login'); throw new Error('401'); }
+  return r;
+}
+let aba = 'cameras';
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
+  aba = b.dataset.aba;
+  document.querySelectorAll('nav button').forEach(x => x.classList.toggle('ativo', x === b));
+  document.querySelectorAll('section').forEach(s => s.classList.toggle('ativa', s.id === aba));
+  if (aba === 'aparelhos') carregarAparelhos();
+});
+
+// ── visor ao vivo: busca JPEGs com o token (sem token na URL) ──────────────
+function visor(cfg) {
+  const st = { pausado: false, url: null, ultimo: null };
+  async function ciclo() {
+    const ativo = aba === cfg.aba && !st.pausado && !document.hidden;
+    if (ativo) {
+      const t0 = performance.now();
+      try {
+        const r = await api(cfg.caminho());
+        if (r.ok) {
+          const b = await r.blob(); st.ultimo = b;
+          const u = URL.createObjectURL(b); cfg.img.src = u; if (st.url) URL.revokeObjectURL(st.url); st.url = u; cfg.msg.textContent = '';
+        } else { const j = await r.json().catch(() => ({})); cfg.msg.textContent = 'Sem imagem: ' + (j.erro || r.status); await new Promise(z => setTimeout(z, 2500)); }
+      } catch (e) { cfg.msg.textContent = 'Sem conexão com o JARVIS.'; await new Promise(z => setTimeout(z, 2500)); }
+      await new Promise(z => setTimeout(z, Math.max(0, cfg.intervalo - (performance.now() - t0))));
+    } else await new Promise(z => setTimeout(z, 400));
+    ciclo();
+  }
+  cfg.pausa.onclick = () => { st.pausado = !st.pausado; cfg.pausa.textContent = st.pausado ? '▶ Continuar' : '⏸ Pausar'; };
+  cfg.foto.onclick = () => {
+    if (!st.ultimo) return toast('Ainda sem imagem.');
+    const a = document.createElement('a'); a.href = URL.createObjectURL(st.ultimo);
+    a.download = cfg.nome() + '_' + new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-') + '.jpg'; a.click();
+  };
+  ciclo();
+}
+const camSel = document.getElementById('camSel');
+visor({ aba: 'cameras', img: document.getElementById('camImg'), msg: document.getElementById('camMsg'),
+  pausa: document.getElementById('camPausa'), foto: document.getElementById('camFoto'), intervalo: 280,
+  caminho: () => '/api/remoto/camera/' + (camSel.value || 0), nome: () => 'camera' });
+visor({ aba: 'tela', img: document.getElementById('telaImg'), msg: document.getElementById('telaMsg'),
+  pausa: document.getElementById('telaPausa'), foto: document.getElementById('telaFoto'), intervalo: 900,
+  caminho: () => '/api/remoto/tela', nome: () => 'tela' });
+(async () => {
+  try {
+    const j = await (await api('/api/remoto/cameras')).json();
+    camSel.innerHTML = j.cameras.map(c => `<option value="${c.id}">${esc(c.nome)}</option>`).join('');
+  } catch (e) {}
+})();
+
+// ── aparelhos ────────────────────────────────────────────────────────────
+const TECLAS_TV = [['⏻ Ligar', 'ligar'], ['⏼ Desligar', 'desligar']];
+async function acao(aparelho, acao, extra = {}) {
+  try {
+    const r = await (await api('/api/remoto/aparelho', { method: 'POST', body: JSON.stringify(Object.assign({ aparelho, acao }, extra)) })).json();
+    toast(r.mensagem && r.mensagem.startsWith('[CONFIRMATION') ? 'Esse precisa de confirmação no PC.' : (r.mensagem || 'Feito.'));
+  } catch (e) { toast('Falhou: ' + e.message); }
+}
+function botao(rot, fn, cls = '') { const b = document.createElement('button'); b.textContent = rot; b.onclick = fn; if (cls) b.className = cls; return b; }
+async function carregarAparelhos() {
+  const caixa = document.getElementById('listaAparelhos');
+  let lista = [];
+  try { lista = (await (await api('/api/remoto/aparelhos')).json()).aparelhos || []; } catch (e) { caixa.textContent = 'Sem conexão.'; return; }
+  if (!lista.length) { caixa.textContent = 'Nenhum aparelho. No PC, diga "Jarvis, procura os aparelhos da rede".'; return; }
+  caixa.className = ''; caixa.innerHTML = '';
+  for (const a of lista) {
+    const card = document.createElement('div'); card.className = 'aparelho';
+    card.innerHTML = `<h3>${esc(a.nome)} <span>${esc(a.nome_tipo)}</span></h3>`;
+    const bt = document.createElement('div'); bt.className = 'botoes'; card.appendChild(bt);
+    const n = a.nome;
+    if (a.plataforma === 'tuya') { bt.append(botao('💡 Ligar', () => acao(n, 'ligar')), botao('🌑 Desligar', () => acao(n, 'desligar'))); }
+    else if (a.plataforma === 'pc') {
+      bt.append(botao('📈 Status', () => acao(n, 'status')), botao('⏻ Ligar', () => acao(n, 'ligar')), botao('🔒 Bloquear', () => acao(n, 'bloquear')),
+        botao('🌙 Suspender', () => acao(n, 'suspender')), botao('🔊 +', () => acao(n, 'volume', { direcao: 'mais' })), botao('🔉 −', () => acao(n, 'volume', { direcao: 'menos' })),
+        botao('↻ Reiniciar', () => confirm('Reiniciar ' + n + '?') && acao(n, 'reiniciar', { confirmado: true }), 'perigo'),
+        botao('⏼ Desligar', () => confirm('Desligar ' + n + '?') && acao(n, 'desligar', { confirmado: true }), 'perigo'));
+      const inp = document.createElement('input'); inp.placeholder = 'programa ou site';
+      const l = document.createElement('div'); l.className = 'linha'; l.append(inp, botao('Abrir', () => inp.value && acao(n, 'abrir', { alvo: inp.value })), botao('Fechar', () => inp.value && acao(n, 'fechar', { alvo: inp.value })));
+      card.appendChild(l);
+    } else {
+      bt.append(...TECLAS_TV.map(([r, x]) => botao(r, () => acao(n, x))), botao('🏠', () => acao(n, 'tecla', { tecla: 'home' })),
+        botao('↩', () => acao(n, 'tecla', { tecla: 'voltar' })), botao('⏯', () => acao(n, 'tecla', { tecla: 'play' })),
+        botao('🔊 +', () => acao(n, 'volume', { direcao: 'mais' })), botao('🔉 −', () => acao(n, 'volume', { direcao: 'menos' })), botao('🔇', () => acao(n, 'volume', { direcao: 'mudo' })));
+      const c = document.createElement('div'); c.className = 'ctrl';
+      for (const [r, t] of [['', ''], ['▲', 'cima'], ['', ''], ['◀', 'esquerda'], ['OK', 'ok'], ['▶', 'direita'], ['', ''], ['▼', 'baixo'], ['', '']]) {
+        if (!t) { c.appendChild(document.createElement('span')); continue; } c.appendChild(botao(r, () => acao(n, 'tecla', { tecla: t })));
+      }
+      card.appendChild(c);
+      const inp = document.createElement('input'); inp.placeholder = 'app (YouTube, Netflix…)';
+      const l = document.createElement('div'); l.className = 'linha'; l.append(inp, botao('Abrir app', () => inp.value && acao(n, 'abrir', { alvo: inp.value })));
+      card.appendChild(l);
+    }
+    caixa.appendChild(card);
+  }
+}
+</script>
+</body>
+</html>

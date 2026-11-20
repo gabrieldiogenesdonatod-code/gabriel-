@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Avatar JARVIS · live</title>
+<!-- Fork PT-BR 2.5: avatar para lives (fonte "Navegador" do OBS). Fundo transparente.
+     O rosto é o do holograma (núcleo do reator, anéis, olhos e boca) com expressões:
+     neutro, rir, surpresa, comemorar, pensar, triste. Estado vem por SSE de /avatar/eventos. -->
+<style>
+html,body{margin:0;height:100%;background:transparent;overflow:hidden}
+canvas{display:block;width:100vw;height:100vh}
+#legenda{position:fixed;left:6%;right:6%;bottom:3%;text-align:center;font:600 clamp(11px,4.4vw,22px)/1.25 'Segoe UI',sans-serif;
+  color:#e8fbff;text-shadow:0 0 6px #000,0 0 12px rgba(56,214,255,.8),0 1px 2px #000;opacity:0;transition:opacity .35s}
+#legenda.on{opacity:1}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="legenda"></div>
+<script>
+"use strict";
+const q = new URLSearchParams(location.search);
+const cv = document.getElementById('c'), ctx = cv.getContext('2d'), leg = document.getElementById('legenda');
+const AZUL = '56,214,255', OURO = '255,207,92';
+let W = 0, H = 0;
+function ajustar(){ W = cv.width = innerWidth * devicePixelRatio; H = cv.height = innerHeight * devicePixelRatio; }
+addEventListener('resize', ajustar); ajustar();
+
+// estado vindo do PC
+let fala = 0, falaSuave = 0, expr = 'neutro', exprDesde = 0, exprId = -1, textoId = -1, legAte = 0;
+// mistura das expressões (0 → 1) para as transições ficarem suaves
+const peso = {rir:0, surpresa:0, comemorar:0, pensar:0, triste:0};
+let particulas = [];
+
+function receber(e){
+  fala = e.fala || 0;
+  if (e.expr_id !== exprId){ exprId = e.expr_id; if (e.expressao !== expr){ expr = e.expressao; exprDesde = performance.now();
+      if (expr === 'comemorar') confete(70); if (expr === 'surpresa') faiscas(26); if (expr === 'rir') risadas(5); } }
+  if (e.texto_id !== textoId){ textoId = e.texto_id; if (e.texto){ leg.textContent = e.texto; leg.classList.add('on');
+      legAte = performance.now() + Math.min(9000, 2500 + 55 * e.texto.length); } }
+}
+
+function confete(n){ for (let i = 0; i < n; i++) particulas.push({tipo:'c', x:0, y:-0.1, vx:(Math.random()-.5)*1.6, vy:-Math.random()*1.4-.4,
+  g:1.6, vida:1.6+Math.random(), t:0, cor: Math.random() < .5 ? AZUL : OURO, giro:Math.random()*6, tam:.012+Math.random()*.014}); }
+function faiscas(n){ for (let i = 0; i < n; i++){ const a = Math.random()*Math.PI*2, v = .5+Math.random()*.9;
+  particulas.push({tipo:'f', x:Math.cos(a)*.3, y:Math.sin(a)*.3, vx:Math.cos(a)*v, vy:Math.sin(a)*v, g:0, vida:.7+Math.random()*.4, t:0, cor:AZUL, tam:.01}); } }
+function risadas(n){ for (let i = 0; i < n; i++) particulas.push({tipo:'h', x:(Math.random()-.5)*.9, y:-.25, vx:(Math.random()-.5)*.2,
+  vy:-.35-Math.random()*.25, g:0, vida:1.4, t:-i*.18, cor:AZUL, tam:.07}); }
+
+function olho(lado, r, t){
+  const x = lado * r * .19, y = -r * .1;
+  const w = peso, pisca = (t % 4.7) < .11 ? .12 : 1;
+  ctx.save(); ctx.translate(x, y);
+  // pensar: olhar para cima e para o lado
+  ctx.translate(r * .035 * w.pensar, -r * .04 * w.pensar);
+  const base = r * .062 * (1 + .55 * w.surpresa);
+  if (w.rir + w.comemorar > .35){                       // olhos "^ ^" de alegria
+    ctx.lineWidth = r * .028; ctx.beginPath();
+    ctx.arc(0, base * .35, base * .95, Math.PI * 1.12, Math.PI * 1.88); ctx.stroke();
+  } else {
+    ctx.beginPath(); ctx.ellipse(0, base * .25 * w.triste, base, base * pisca * (1 - .4 * w.triste), 0, 0, 7); ctx.fill();
+    if (w.triste > .2){                                  // sobrancelha triste: a ponta de dentro sobe
+      ctx.globalAlpha = Math.min(1, w.triste * 1.4); ctx.lineWidth = r * .022; ctx.beginPath();
+      ctx.moveTo(-lado * base * 1.5, -base * 1.25 - base * .7 * w.triste); ctx.lineTo(lado * base * 1.3, -base * 1.05);
+      ctx.stroke(); ctx.globalAlpha = 1;
+    }
+  }
+  ctx.restore();
+}
+
+function boca(r, t){
+  const w = peso;
+  const abre = r * (.015 + falaSuave * .11 * (.6 + .4 * Math.sin(t * 23)));
+  ctx.lineWidth = r * .026; ctx.beginPath();
+  if (w.surpresa > .45 && falaSuave < .2){               // "O"
+    ctx.ellipse(0, r * .19, r * .045, r * .06 * w.surpresa, 0, 0, 7); ctx.stroke(); return;
+  }
+  const sorriso = r * (.05 * (w.rir + w.comemorar) - .055 * w.triste);
+  const larg = r * (.16 + .05 * (w.rir + w.comemorar));
+  const y0 = r * .16 - sorriso * .2;
+  if (w.rir > .4){                                        // risada: boca em "D" aberta
+    const fundo = r * (.09 + .03 * Math.abs(Math.sin(t * 12))) * w.rir;
+    ctx.moveTo(-larg, y0); ctx.lineTo(larg, y0); ctx.quadraticCurveTo(0, y0 + fundo * 2, -larg, y0); ctx.closePath();
+    ctx.globalAlpha = .55; ctx.fill(); ctx.globalAlpha = 1; ctx.stroke(); return;
+  }
+  ctx.moveTo(-larg, y0);
+  ctx.quadraticCurveTo(0, r * .16 + sorriso + abre * 2, larg, y0);
+  if (abre > r * .03){                                    // falando: a boca abre
+    ctx.quadraticCurveTo(0, r * .16 + sorriso * .3, -larg, y0);
+    ctx.globalAlpha = .55; ctx.fill(); ctx.globalAlpha = 1;
+  }
+  ctx.stroke();
+}
+
+function rosto(t, r){
+  const w = peso;
+  const energia = Math.max(falaSuave, .9 * w.comemorar, .6 * w.surpresa);
+  const pulso = 1 + energia * .25 + Math.sin(t * 2) * .03 - .06 * w.triste;
+  const brilho = 1 - .35 * w.triste;
+  const g = ctx.createRadialGradient(0, 0, 0, 0, 0, r * .55 * pulso);
+  g.addColorStop(0, `rgba(220,250,255,${brilho})`); g.addColorStop(.25, `rgba(${AZUL},${.9 * brilho})`); g.addColorStop(1, `rgba(${AZUL},0)`);
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, r * .55 * pulso, 0, 7); ctx.fill();
+  ctx.lineCap = 'round';
+  const giro = 1 + 2.5 * w.comemorar + 1.2 * w.surpresa - .6 * w.triste;
+  for (let k = 0; k < 3; k++){
+    const raio = r * (.62 + k * .13) * (1 + .08 * w.surpresa), v = (k % 2 ? -1 : 1) * (.6 + k * .25) * giro;
+    const cor = w.comemorar > .3 && k === 1 ? OURO : AZUL;
+    ctx.strokeStyle = `rgba(${cor},${(.75 - k * .18) * brilho})`; ctx.lineWidth = r * (.03 - k * .006);
+    for (let s = 0; s < 6 + k * 2; s++){
+      const a = t * v + s * (Math.PI * 2 / (6 + k * 2));
+      ctx.beginPath(); ctx.arc(0, 0, raio, a, a + .5 + energia * .3); ctx.stroke();
+    }
+  }
+  ctx.fillStyle = '#e8fbff'; ctx.strokeStyle = '#e8fbff'; ctx.shadowColor = `rgb(${AZUL})`; ctx.shadowBlur = r * .12;
+  olho(-1, r, t); olho(1, r, t);
+  boca(r, t);
+  if (w.pensar > .3){                                    // três pontinhos girando
+    for (let i = 0; i < 3; i++){ const a = t * 3 + i * 2.1;
+      ctx.globalAlpha = w.pensar * (.4 + .6 * ((Math.sin(t * 4 - i) + 1) / 2));
+      ctx.beginPath(); ctx.arc(r * .62 + Math.cos(a) * r * .05, -r * .62 + Math.sin(a) * r * .05, r * .025, 0, 7); ctx.fill(); }
+    ctx.globalAlpha = 1;
+  }
+  ctx.shadowBlur = 0;
+}
+
+function desenharParticulas(dt, r){
+  particulas = particulas.filter(p => (p.t += dt) < p.vida);
+  for (const p of particulas){
+    if (p.t < 0) continue;
+    p.vy += p.g * dt; p.x += p.vx * dt; p.y += p.vy * dt;
+    const a = Math.max(0, 1 - p.t / p.vida);
+    ctx.save(); ctx.translate(p.x * r * 2, p.y * r * 2);
+    if (p.tipo === 'c'){ ctx.rotate(p.giro + p.t * 8); ctx.fillStyle = `rgba(${p.cor},${a})`; ctx.fillRect(-p.tam * r, -p.tam * r * .5, p.tam * r * 2, p.tam * r); }
+    else if (p.tipo === 'f'){ ctx.fillStyle = `rgba(220,250,255,${a})`; ctx.beginPath(); ctx.arc(0, 0, p.tam * r * 2 * a + 1, 0, 7); ctx.fill(); }
+    else { ctx.fillStyle = `rgba(${p.cor},${a})`; ctx.font = `700 ${Math.round(p.tam * r * 2)}px Segoe UI, sans-serif`; ctx.textAlign = 'center'; ctx.fillText('ha', 0, 0); }
+    ctx.restore();
+  }
+}
+
+let anterior = performance.now();
+function quadro(ms){
+  const dt = Math.min(.05, (ms - anterior) / 1000); anterior = ms;
+  const t = ms / 1000;
+  falaSuave += (fala - falaSuave) * Math.min(1, dt * 18);
+  for (const k in peso) peso[k] += ((expr === k ? 1 : 0) - peso[k]) * Math.min(1, dt * 7);
+  if (leg.classList.contains('on') && ms > legAte) leg.classList.remove('on');
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, W, H);
+  const r = Math.min(W, H) * .3;
+  const pulo = Math.abs(Math.sin(t * 9)) * r * .05 * peso.rir + Math.abs(Math.sin(t * 6)) * r * .06 * peso.comemorar;
+  const tremor = Math.sin(t * 40) * r * .01 * peso.surpresa * Math.max(0, 1 - (ms - exprDesde) / 600);
+  ctx.setTransform(1, 0, 0, 1, W / 2 + tremor, H * .46 - pulo);
+  ctx.rotate(Math.sin(t * 7) * .05 * peso.rir);
+  rosto(t, r);
+  ctx.setTransform(1, 0, 0, 1, W / 2, H * .46);
+  desenharParticulas(dt, r);
+  requestAnimationFrame(quadro);
+}
+requestAnimationFrame(quadro);
+
+if (q.get('demo')){                                      // ?demo=1: passa pelas expressões (para testar no navegador)
+  const seq = ['neutro','rir','surpresa','comemorar','pensar','triste'];
+  let i = 0, id = 0;
+  setInterval(() => { i = (i + 1) % seq.length; receber({fala: 0, expressao: seq[i], expr_id: ++id, texto: seq[i] === 'comemorar' ? 'Venda! 2× Moletom' : '', texto_id: id}); }, 2600);
+  setInterval(() => { fala = Math.random() < .5 ? Math.random() : 0; }, 120);
+} else {
+  (function conectar(){
+    const es = new EventSource('/avatar/eventos?k=' + encodeURIComponent(q.get('k') || ''));
+    es.onmessage = ev => { try { receber(JSON.parse(ev.data)); } catch (e) {} };
+    es.onerror = () => { es.close(); fala = 0; setTimeout(conectar, 3000); };
+  })();
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#04070d">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icone.svg" type="image/svg+xml">
+<title>J.A.R.V.I.S</title>
+<!-- J.A.R.V.I.S BR 2.1 — versão SÓ CELULAR. Não depende do computador: fica hospedada de graça
+     (GitHub Pages, Netlify…), instala como app e conversa direto com o Gemini usando a SUA chave,
+     que fica só neste celular. Fork PT-BR do Mark LVI (FatihMakes), CC BY-NC 4.0. -->
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#04070d;--hud:#38d6ff;--hud2:rgba(56,214,255,.18);--hud3:rgba(56,214,255,.07);--texto:#d8f6ff;--mudo:#5f8597;--verm:#ff5a5a;--verde:#3dffa0;--ouro:#ffb547}
+html,body{background:radial-gradient(circle at 50% 0%,#0b1a26 0%,var(--bg) 65%) fixed;color:var(--texto);font-family:'Segoe UI',-apple-system,sans-serif;height:100%}
+body{display:flex;flex-direction:column;min-height:100dvh;padding-bottom:env(safe-area-inset-bottom)}
+header{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--hud3)}
+.titulo{letter-spacing:5px;font-weight:700;color:var(--hud);font-size:14px;flex:1}
+button{font:inherit;color:var(--texto);background:var(--hud3);border:1px solid var(--hud2);border-radius:10px;padding:8px 12px;cursor:pointer;white-space:nowrap}
+header button{padding:7px 10px;font-size:13px}
+button.ativo{background:rgba(56,214,255,.25);color:#fff;border-color:var(--hud)}
+#status{font-size:11px;color:var(--mudo);padding:6px 14px}
+#status b{color:var(--verde)} #status .ruim{color:var(--verm)}
+#conversa{flex:1;overflow-y:auto;padding:10px 14px;display:flex;flex-direction:column;gap:10px}
+.msg{max-width:86%;padding:10px 12px;border-radius:14px;line-height:1.45;font-size:15px;white-space:pre-wrap;word-wrap:break-word}
+.eu{align-self:flex-end;background:rgba(56,214,255,.16);border-bottom-right-radius:4px}
+.ele{align-self:flex-start;background:#0b1822;border:1px solid var(--hud3);border-bottom-left-radius:4px}
+.sis{align-self:center;color:var(--mudo);font-size:12px;text-align:center}
+.ele a{color:var(--hud)}
+#orb{width:86px;height:86px;border-radius:50%;margin:8px auto 2px;background:radial-gradient(circle,#e8fbff 0%,#38d6ff 35%,rgba(56,214,255,0) 70%);
+ box-shadow:0 0 40px rgba(56,214,255,.35);transition:transform .2s;cursor:pointer;border:0;display:block}
+#orb.ouvindo{animation:pulsa 1s infinite}#orb.pensando{animation:gira 1.2s linear infinite;opacity:.7}#orb.falando{animation:pulsa .5s infinite}
+@keyframes pulsa{50%{transform:scale(1.12)}}@keyframes gira{to{transform:rotate(360deg)}}
+#dica{text-align:center;color:var(--mudo);font-size:12px;min-height:16px}
+form{display:flex;gap:8px;padding:10px 14px 14px}
+input,select,textarea{flex:1;font:inherit;color:var(--texto);background:#08131c;border:1px solid var(--hud2);border-radius:12px;padding:11px 12px;min-width:0;width:100%}
+.painel{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:5;align-items:flex-end}
+.painel>div{background:#07111a;border-top:1px solid var(--hud2);border-radius:18px 18px 0 0;padding:16px;width:100%;max-height:88dvh;overflow:auto}
+.painel h3{color:var(--hud);font-size:14px;letter-spacing:2px;margin:6px 0 10px}
+.painel label{display:block;font-size:13px;color:var(--mudo);margin:12px 0 4px}
+.painel p{font-size:12px;color:var(--mudo);line-height:1.5;margin-top:6px}
+.painel li{font-size:13px;margin:6px 0 6px 18px;line-height:1.4}
+.linha{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.marca{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--texto);margin-top:12px}
+.marca input{flex:none;width:auto}
+</style>
+</head>
+<body>
+<header>
+ <div class="titulo">J.A.R.V.I.S</div>
+ <button id="maos" title="Mãos livres">🎙 Mãos livres</button>
+ <button id="mem" title="O que eu lembro">🧠</button>
+ <button id="cfg" title="Configurar">⚙</button>
+</header>
+<div id="status">…</div>
+<div id="conversa"></div>
+<button id="orb" aria-label="Falar"></button>
+<div id="dica">Toque no círculo para falar</div>
+<form id="form"><input id="txt" placeholder="Escreva para o JARVIS…" autocomplete="off"><button>➤</button></form>
+
+<div class="painel" id="pCfg"><div>
+ <h3>⚙ CONFIGURAR</h3>
+ <label>Seu nome (como o JARVIS te chama)</label>
+ <input id="nome" placeholder="senhor">
+ <label>Chave do Gemini — grátis em aistudio.google.com/app/apikey</label>
+ <input id="chave" type="password" placeholder="cole a chave aqui">
+ <p>A chave fica só neste celular e só vai para o Google.</p>
+ <label>Modelo</label>
+ <input id="modelo" placeholder="gemini-2.5-flash">
+ <label>Voz</label>
+ <select id="voz"></select>
+ <label class="marca"><input type="checkbox" id="falarResp"> Falar as respostas em voz alta</label>
+ <label>Endereço do JARVIS do PC (opcional, para abrir o modo completo quando ele estiver ligado)</label>
+ <input id="pc" placeholder="https://seu-pc.tail1234.ts.net/movel">
+ <div class="linha"><button id="instalar" style="display:none">📲 Instalar o app</button><button id="limpar">Apagar conversa</button><button id="fechar">Salvar</button></div>
+ <p>Instalar: no Chrome, ⋮ → "Instalar app" (ou "Adicionar à tela inicial"). Depois de instalado, abre como um app, sem barra do navegador.</p>
+</div></div>
+
+<div class="painel" id="pMem"><div>
+ <h3>🧠 O QUE EU LEMBRO DE VOCÊ</h3>
+ <ul id="listaMem"></ul>
+ <h3 style="margin-top:16px">📝 NOTAS</h3>
+ <ul id="listaNotas"></ul>
+ <div class="linha"><button id="exportar">Copiar backup</button><button id="importar">Colar backup</button><button id="fecharMem">Fechar</button></div>
+ <p>Diga "lembra que…" ou "anota…" e eu guardo aqui, no celular. "Esquece que…" apaga.</p>
+</div></div>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const guardar = (k, v) => { try { localStorage.setItem(k, typeof v === "string" ? v : JSON.stringify(v)); } catch (e) {} };
+const ler = (k, p = "") => { try { return localStorage.getItem(k) ?? p; } catch (e) { return p; } };
+const lerJSON = (k, p) => { try { return JSON.parse(ler(k, "")) ?? p; } catch (e) { return p; } };
+let historico = lerJSON("j_historico", []).slice(-30);
+let memorias = lerJSON("j_memorias", []);        // [{ts, texto}]
+let notas = lerJSON("j_notas", []);              // [{ts, texto}]
+let maosLivres = false;
+
+// ── interface ──────────────────────────────────────────────────────────────
+function linkar(t) {
+  const esc = String(t).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+  return esc.replace(/(https?:\/\/[^\s)]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+}
+function bolha(texto, quem) {
+  const d = document.createElement("div"); d.className = "msg " + quem;
+  if (quem === "ele") d.innerHTML = linkar(texto); else d.textContent = texto;
+  $("#conversa").appendChild(d); $("#conversa").scrollTop = 1e9; return d;
+}
+function orb(estado) {
+  $("#orb").className = estado || "";
+  $("#dica").textContent = { ouvindo: "Ouvindo…", pensando: "Pensando…", falando: "Falando…" }[estado] ||
+    (maosLivres ? "Mãos livres: é só falar" : "Toque no círculo para falar");
+}
+function mostrarStatus() {
+  const chave = !!ler("j_chave");
+  const online = navigator.onLine;
+  $("#status").innerHTML = !chave ? '<span class="ruim">Falta a chave do Gemini</span> — toque em ⚙'
+    : !online ? '<span class="ruim">Sem internet</span> — eu preciso dela para pensar'
+    : `<b>Pronto</b> · só no celular, sem depender do PC · ${memorias.length} lembrança(s)`;
+}
+addEventListener("online", mostrarStatus); addEventListener("offline", mostrarStatus);
+
+// ── voz ────────────────────────────────────────────────────────────────────
+let vozes = [];
+function carregarVozes() {
+  vozes = (speechSynthesis.getVoices() || []).filter(v => v.lang && v.lang.toLowerCase().startsWith("pt"));
+  $("#voz").innerHTML = vozes.map((v, i) => `<option value="${i}">${v.name}</option>`).join("") || "<option>(padrão)</option>";
+  $("#voz").value = ler("j_voz", "0");
+}
+if ("speechSynthesis" in window) { carregarVozes(); speechSynthesis.onvoiceschanged = carregarVozes; }
+function falar(texto, depois) {
+  if (ler("j_falar", "1") !== "1" || !("speechSynthesis" in window)) { if (depois) depois(); return; }
+  const u = new SpeechSynthesisUtterance(String(texto).replace(/https?:\/\/\S+/g, "").replace(/[*_#`>]/g, ""));
+  u.lang = "pt-BR"; const v = vozes[+ler("j_voz", "0")]; if (v) u.voice = v;
+  u.onstart = () => orb("falando"); u.onend = () => { orb(""); if (depois) depois(); };
+  speechSynthesis.cancel(); speechSynthesis.speak(u);
+}
+const Reconhecer = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null;
+function ouvir() {
+  if (!Reconhecer) { bolha("Este navegador não reconhece voz. Use o Chrome no Android, ou digite.", "sis"); maosLivres = false; marcarMaos(); return; }
+  if (rec) return;
+  if ("speechSynthesis" in window) speechSynthesis.cancel();
+  rec = new Reconhecer(); rec.lang = "pt-BR"; rec.interimResults = false; rec.maxAlternatives = 1;
+  let ouviu = false;
+  rec.onresult = e => { const t = e.results[0][0].transcript; if (t) { ouviu = true; enviar(t); } };
+  rec.onerror = e => { if (e.error === "not-allowed") { bolha("Sem permissão para o microfone: permita nas configurações do site.", "sis"); maosLivres = false; marcarMaos(); } };
+  rec.onend = () => { rec = null; if ($("#orb").className === "ouvindo") orb(""); if (maosLivres && !ouviu && !document.hidden) setTimeout(ouvir, 400); };
+  orb("ouvindo"); rec.start();
+}
+$("#orb").onclick = () => { if (rec) { rec.stop(); return; } ouvir(); };
+function marcarMaos() { $("#maos").classList.toggle("ativo", maosLivres); orb($("#orb").className); }
+$("#maos").onclick = () => { maosLivres = !maosLivres; marcarMaos(); if (maosLivres) { bolha("Mãos livres ligado: depois de cada resposta eu volto a ouvir. Diga 'pode parar' para desligar.", "sis"); ouvir(); } else if (rec) rec.stop(); };
+document.addEventListener("visibilitychange", () => { if (document.hidden && rec) rec.stop(); else if (!document.hidden && maosLivres) ouvir(); });
+
+// ── memória do JARVIS no celular ────────────────────────────────────────────
+function salvarMem() { guardar("j_memorias", memorias.slice(-200)); guardar("j_notas", notas.slice(-300)); mostrarStatus(); }
+function listarMem() {
+  const item = (x, arr, i) => `<li>${linkar(x.texto)} <button data-a="${arr}" data-i="${i}" style="padding:2px 8px;font-size:11px">apagar</button></li>`;
+  $("#listaMem").innerHTML = memorias.map((x, i) => item(x, "m", i)).join("") || "<li>Nada ainda.</li>";
+  $("#listaNotas").innerHTML = notas.map((x, i) => item(x, "n", i)).join("") || "<li>Nenhuma nota.</li>";
+  document.querySelectorAll("#pMem li button").forEach(b => b.onclick = () => { (b.dataset.a === "m" ? memorias : notas).splice(+b.dataset.i, 1); salvarMem(); listarMem(); });
+}
+$("#mem").onclick = () => { listarMem(); $("#pMem").style.display = "flex"; };
+$("#fecharMem").onclick = () => { $("#pMem").style.display = "none"; };
+$("#exportar").onclick = async () => {
+  const dados = JSON.stringify({ memorias, notas, nome: ler("j_nome") });
+  try { await navigator.clipboard.writeText(dados); bolha("Backup copiado. Guarde num lugar seguro (ou cole no app de outro celular).", "sis"); }
+  catch (e) { prompt("Copie o backup:", dados); }
+};
+$("#importar").onclick = () => {
+  const t = prompt("Cole o backup:"); if (!t) return;
+  try { const d = JSON.parse(t); memorias = d.memorias || memorias; notas = d.notas || notas; if (d.nome) guardar("j_nome", d.nome); salvarMem(); listarMem(); }
+  catch (e) { bolha("Esse backup não é válido.", "sis"); }
+};
+
+// ── cérebro: Gemini direto do celular + ferramentas do celular ─────────────
+const FERRAMENTAS = [
+  { name: "lembrar", description: "Guarda um fato duradouro sobre o usuário (gostos, pessoas, preferências) quando ele pedir ou contar algo importante.", parameters: { type: "OBJECT", properties: { fato: { type: "STRING" } }, required: ["fato"] } },
+  { name: "esquecer", description: "Apaga lembranças que contenham um trecho.", parameters: { type: "OBJECT", properties: { trecho: { type: "STRING" } }, required: ["trecho"] } },
+  { name: "anotar", description: "Guarda uma nota ou item de lista (compras, ideias, tarefas).", parameters: { type: "OBJECT", properties: { texto: { type: "STRING" } }, required: ["texto"] } },
+  { name: "ver_notas", description: "Lê as notas guardadas.", parameters: { type: "OBJECT", properties: {} } },
+  { name: "apagar_nota", description: "Apaga notas que contenham um trecho (ou 'tudo').", parameters: { type: "OBJECT", properties: { trecho: { type: "STRING" } }, required: ["trecho"] } },
+  { name: "pesquisar", description: "Pesquisa na internet algo atual (notícias, clima, preços, placares, horários) e devolve um resumo.", parameters: { type: "OBJECT", properties: { pergunta: { type: "STRING" } }, required: ["pergunta"] } },
+  { name: "tocar_musica", description: "Toca música: abre a busca no Spotify ou no YouTube Music.", parameters: { type: "OBJECT", properties: { pedido: { type: "STRING" }, servico: { type: "STRING", description: "spotify | youtube" } }, required: ["pedido"] } },
+  { name: "abrir_link", description: "Abre um site ou link.", parameters: { type: "OBJECT", properties: { url: { type: "STRING" } }, required: ["url"] } },
+  { name: "youtube", description: "Busca vídeos no YouTube.", parameters: { type: "OBJECT", properties: { busca: { type: "STRING" } }, required: ["busca"] } },
+  { name: "mandar_whatsapp", description: "Prepara uma mensagem de WhatsApp; o usuário escolhe o contato e confirma.", parameters: { type: "OBJECT", properties: { texto: { type: "STRING" }, numero: { type: "STRING", description: "com DDI e DDD, só números (opcional)" } }, required: ["texto"] } },
+  { name: "ligar", description: "Abre o discador com o número; o usuário confirma a ligação.", parameters: { type: "OBJECT", properties: { numero: { type: "STRING" } }, required: ["numero"] } },
+  { name: "rota", description: "Abre a rota no Google Maps.", parameters: { type: "OBJECT", properties: { destino: { type: "STRING" } }, required: ["destino"] } },
+  { name: "agenda", description: "Cria um evento no Google Agenda (o usuário confirma).", parameters: { type: "OBJECT", properties: { titulo: { type: "STRING" }, inicio: { type: "STRING", description: "AAAA-MM-DDTHH:MM" }, minutos: { type: "NUMBER" } }, required: ["titulo", "inicio"] } },
+  { name: "lembrete", description: "Avisa daqui a N minutos (com o app aberto ou em segundo plano recente).", parameters: { type: "OBJECT", properties: { minutos: { type: "NUMBER" }, texto: { type: "STRING" } }, required: ["minutos", "texto"] } },
+  { name: "abrir_jarvis_pc", description: "Abre o JARVIS completo do PC (se o endereço estiver configurado e o PC ligado), para controlar o PC e a casa.", parameters: { type: "OBJECT", properties: {} } },
+  { name: "parar_maos_livres", description: "Desliga o modo mãos livres quando o usuário pedir para parar de ouvir.", parameters: { type: "OBJECT", properties: {} } },
+];
+function sistema() {
+  const nome = ler("j_nome") || "senhor";
+  return `Você é o J.A.R.V.I.S, assistente pessoal do usuário (brasileiro), rodando só no celular dele. ` +
+    `Português do Brasil, com o charme do JARVIS do Homem de Ferro; chame-o de "${nome}" às vezes. Respostas CURTAS (1 a 3 frases), porque são faladas. ` +
+    `Agora: ${new Date().toLocaleString("pt-BR")}. Para fatos atuais use "pesquisar" e não invente. ` +
+    `Quando ele contar algo duradouro sobre si (ou pedir "lembra que…"), use "lembrar". ` +
+    (memorias.length ? `O que você já sabe dele: ${memorias.slice(-60).map(m => m.texto).join("; ")}.` : "Você ainda não sabe nada sobre ele.");
+}
+async function gemini(corpo) {
+  const chave = ler("j_chave"), modelo = ler("j_modelo") || "gemini-2.5-flash";
+  if (!chave) throw new Error("falta a chave do Gemini (toque em ⚙)");
+  if (!navigator.onLine) throw new Error("sem internet agora");
+  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelo)}:generateContent`,
+    { method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": chave }, body: JSON.stringify(corpo) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error((j.error && j.error.message) || ("Gemini " + r.status));
+  return j;
+}
+const abrir = url => { window.open(url, "_blank"); return { ok: true }; };
+async function executar(nome, a) {
+  switch (nome) {
+    case "lembrar": memorias.push({ ts: Date.now(), texto: String(a.fato || "").slice(0, 300) }); salvarMem(); return { ok: true };
+    case "esquecer": { const t = String(a.trecho || "").toLowerCase(), antes = memorias.length; memorias = memorias.filter(m => !m.texto.toLowerCase().includes(t)); salvarMem(); return { apagadas: antes - memorias.length }; }
+    case "anotar": notas.push({ ts: Date.now(), texto: String(a.texto || "").slice(0, 500) }); salvarMem(); return { ok: true, total: notas.length };
+    case "ver_notas": return { notas: notas.map(n => n.texto) };
+    case "apagar_nota": { const t = String(a.trecho || "").toLowerCase(), antes = notas.length; notas = t === "tudo" ? [] : notas.filter(n => !n.texto.toLowerCase().includes(t)); salvarMem(); return { apagadas: antes - notas.length }; }
+    case "pesquisar": {
+      const j = await gemini({ contents: [{ role: "user", parts: [{ text: a.pergunta }] }], tools: [{ google_search: {} }] });
+      return { resposta: ((((j.candidates || [])[0] || {}).content || {}).parts || []).map(p => p.text || "").join(" ").slice(0, 3000) };
+    }
+    case "tocar_musica": { const q = encodeURIComponent(a.pedido || ""); return abrir(String(a.servico || "").toLowerCase().includes("you") ? `https://music.youtube.com/search?q=${q}` : `https://open.spotify.com/search/${q}`); }
+    case "abrir_link": return abrir(a.url);
+    case "youtube": return abrir("https://www.youtube.com/results?search_query=" + encodeURIComponent(a.busca || ""));
+    case "mandar_whatsapp": abrir(`https://wa.me/${String(a.numero || "").replace(/\D/g, "")}?text=${encodeURIComponent(a.texto || "")}`); return { ok: true, observacao: "o usuário confirma o envio no WhatsApp" };
+    case "ligar": location.href = "tel:" + String(a.numero || "").replace(/[^\d+]/g, ""); return { ok: true };
+    case "rota": return abrir("https://www.google.com/maps/dir/?api=1&destination=" + encodeURIComponent(a.destino || ""));
+    case "agenda": {
+      const ini = new Date(a.inicio); if (isNaN(ini)) return { erro: "data inválida" };
+      const fim = new Date(ini.getTime() + (+a.minutos || 60) * 60000), f = d => d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+      return abrir(`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(a.titulo || "")}&dates=${f(ini)}/${f(fim)}`);
+    }
+    case "lembrete": {
+      const ms = Math.max(1, +a.minutos || 1) * 60000, texto = a.texto || "Lembrete";
+      try { if ("Notification" in window && Notification.permission === "default") await Notification.requestPermission(); } catch (e) {}
+      setTimeout(async () => {
+        bolha("⏰ " + texto, "ele"); falar("Lembrete: " + texto);
+        try { const reg = await navigator.serviceWorker.getRegistration(); if (reg && Notification.permission === "granted") reg.showNotification("J.A.R.V.I.S", { body: texto, icon: "icone.svg", vibrate: [200, 100, 200] }); } catch (e) {}
+      }, ms);
+      return { ok: true, observacao: "o Android pode atrasar se o app ficar fechado muito tempo; para coisas importantes, sugira a agenda" };
+    }
+    case "abrir_jarvis_pc": { const pc = ler("j_pc"); if (!pc) return { erro: "o endereço do PC não está configurado (⚙)" }; return abrir(pc); }
+    case "parar_maos_livres": maosLivres = false; marcarMaos(); if (rec) rec.stop(); return { ok: true };
+  }
+  return { erro: "ferramenta desconhecida" };
+}
+async function pensar(texto) {
+  historico.push({ role: "user", parts: [{ text: texto }] });
+  orb("pensando");
+  for (let volta = 0; volta < 5; volta++) {
+    const j = await gemini({ systemInstruction: { parts: [{ text: sistema() }] }, contents: historico.slice(-24), tools: [{ functionDeclarations: FERRAMENTAS }] });
+    const partes = (((j.candidates || [])[0] || {}).content || {}).parts || [];
+    const chamadas = partes.filter(p => p.functionCall);
+    if (!chamadas.length) {
+      const resp = partes.map(p => p.text || "").join("").trim() || "…";
+      historico.push({ role: "model", parts: [{ text: resp }] });
+      guardar("j_historico", historico.slice(-30));
+      orb(""); bolha(resp, "ele");
+      falar(resp, () => { if (maosLivres) setTimeout(ouvir, 300); });
+      return;
+    }
+    historico.push({ role: "model", parts: chamadas });
+    const respostas = [];
+    for (const c of chamadas) {
+      let r; try { r = await executar(c.functionCall.name, c.functionCall.args || {}); } catch (e) { r = { erro: String(e.message || e) }; }
+      respostas.push({ functionResponse: { name: c.functionCall.name, response: r } });
+    }
+    historico.push({ role: "user", parts: respostas });
+  }
+  orb("");
+}
+async function enviar(texto) {
+  texto = String(texto || "").trim(); if (!texto) return;
+  bolha(texto, "eu");
+  try { await pensar(texto); }
+  catch (e) { orb(""); bolha("⚠ " + (e.message || e), "sis"); if (maosLivres) setTimeout(ouvir, 1500); }
+}
+$("#form").onsubmit = e => { e.preventDefault(); const t = $("#txt").value; $("#txt").value = ""; enviar(t); };
+
+// ── configurar e instalar ──────────────────────────────────────────────────
+$("#cfg").onclick = () => {
+  $("#nome").value = ler("j_nome"); $("#chave").value = ler("j_chave"); $("#modelo").value = ler("j_modelo");
+  $("#pc").value = ler("j_pc"); $("#falarResp").checked = ler("j_falar", "1") === "1"; $("#pCfg").style.display = "flex";
+};
+$("#fechar").onclick = () => {
+  guardar("j_nome", $("#nome").value.trim()); guardar("j_chave", $("#chave").value.trim()); guardar("j_modelo", $("#modelo").value.trim());
+  guardar("j_pc", $("#pc").value.trim()); guardar("j_voz", $("#voz").value); guardar("j_falar", $("#falarResp").checked ? "1" : "0");
+  $("#pCfg").style.display = "none"; mostrarStatus();
+};
+document.querySelectorAll(".painel").forEach(p => p.onclick = e => { if (e.target === p) p.style.display = "none"; });
+$("#limpar").onclick = () => { historico = []; guardar("j_historico", []); $("#conversa").innerHTML = ""; };
+let pedidoInstalar = null;
+addEventListener("beforeinstallprompt", e => { e.preventDefault(); pedidoInstalar = e; $("#instalar").style.display = ""; });
+$("#instalar").onclick = async () => { if (pedidoInstalar) { pedidoInstalar.prompt(); pedidoInstalar = null; $("#instalar").style.display = "none"; } };
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+
+for (const h of historico.slice(-12)) {
+  const t = (h.parts || []).map(p => p.text || "").join("");
+  if (t) bolha(t, h.role === "user" ? "eu" : "ele");
+}
+if (!historico.length) bolha(ler("j_chave")
+  ? "Olá! Estou rodando só no seu celular. Toque no círculo e fale comigo."
+  : "Olá! Eu sou o J.A.R.V.I.S, só no seu celular. Para começar, toque em ⚙ e cole a sua chave grátis do Gemini (aistudio.google.com/app/apikey).", "ele");
+mostrarStatus();
+</script>
+</body>
+</html>

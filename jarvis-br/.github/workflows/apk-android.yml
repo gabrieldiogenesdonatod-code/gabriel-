@@ -1,0 +1,40 @@
+# Monta o APK do J.A.R.V.I.S BR de graça nos computadores do GitHub.
+# Toda vez que você enviar o projeto (push) ou clicar em "Run workflow" na aba Actions, sai um APK novo
+# em Actions → (a execução) → Artifacts → "JARVIS-BR-apk".
+name: APK do JARVIS (Android)
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch: {}
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Python 3.11 (o Chaquopy usa para preparar o Python do app)
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Montar o APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Guardar o APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: JARVIS-BR-apk
+          path: android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error

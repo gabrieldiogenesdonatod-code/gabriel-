@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#04070d">
+<link rel="manifest" href="/movel.webmanifest">
+<link rel="icon" href="/icone-jarvis.svg" type="image/svg+xml">
+<title>J.A.R.V.I.S</title>
+<!-- Fork PT-BR 2.0: app do JARVIS no celular (PWA). Dois modos:
+     📱 Celular — conversa sozinho, sem o PC (Gemini direto do celular + voz do próprio navegador);
+     💻 PC     — o JARVIS completo do PC, com todas as ferramentas, quando o PC está ligado. -->
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#04070d;--hud:#38d6ff;--hud2:rgba(56,214,255,.18);--hud3:rgba(56,214,255,.07);--texto:#d8f6ff;--mudo:#5f8597;--verm:#ff5a5a;--verde:#3dffa0}
+html,body{background:radial-gradient(circle at 50% 0%,#0b1a26 0%,var(--bg) 65%) fixed;color:var(--texto);font-family:'Segoe UI',-apple-system,sans-serif;height:100%}
+body{display:flex;flex-direction:column;min-height:100dvh;padding-bottom:env(safe-area-inset-bottom)}
+header{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--hud3)}
+.titulo{letter-spacing:5px;font-weight:700;color:var(--hud);font-size:14px;flex:1}
+.modos{display:flex;border:1px solid var(--hud2);border-radius:12px;overflow:hidden}
+.modos button{border:0;border-radius:0;padding:7px 10px;font-size:13px}
+button{font:inherit;color:var(--texto);background:var(--hud3);border:1px solid var(--hud2);border-radius:10px;padding:8px 12px;cursor:pointer}
+button.ativo{background:rgba(56,214,255,.25);color:#fff}
+#status{font-size:11px;color:var(--mudo);padding:6px 14px}
+#status b{color:var(--verde)} #status .ruim{color:var(--verm)}
+#conversa{flex:1;overflow-y:auto;padding:10px 14px;display:flex;flex-direction:column;gap:10px}
+.msg{max-width:86%;padding:10px 12px;border-radius:14px;line-height:1.45;font-size:15px;white-space:pre-wrap;word-wrap:break-word}
+.eu{align-self:flex-end;background:rgba(56,214,255,.16);border-bottom-right-radius:4px}
+.ele{align-self:flex-start;background:#0b1822;border:1px solid var(--hud3);border-bottom-left-radius:4px}
+.sis{align-self:center;color:var(--mudo);font-size:12px;text-align:center}
+.ele a{color:var(--hud)}
+#orb{width:86px;height:86px;border-radius:50%;margin:8px auto 2px;background:radial-gradient(circle,#e8fbff 0%,#38d6ff 35%,rgba(56,214,255,0) 70%);
+ box-shadow:0 0 40px rgba(56,214,255,.35);transition:transform .2s;cursor:pointer;border:0;display:block}
+#orb.ouvindo{animation:pulsa 1s infinite}#orb.pensando{animation:gira 1.2s linear infinite;opacity:.7}#orb.falando{animation:pulsa .5s infinite}
+@keyframes pulsa{50%{transform:scale(1.12)}}@keyframes gira{to{transform:rotate(360deg)}}
+#dica{text-align:center;color:var(--mudo);font-size:12px;min-height:16px}
+form{display:flex;gap:8px;padding:10px 14px 14px}
+input,select{flex:1;font:inherit;color:var(--texto);background:#08131c;border:1px solid var(--hud2);border-radius:12px;padding:11px 12px;min-width:0}
+#painel{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:5;align-items:flex-end}
+#painel>div{background:#07111a;border-top:1px solid var(--hud2);border-radius:18px 18px 0 0;padding:16px;width:100%;max-height:85dvh;overflow:auto}
+#painel h3{color:var(--hud);font-size:14px;letter-spacing:2px;margin:6px 0 10px}
+#painel label{display:block;font-size:13px;color:var(--mudo);margin:10px 0 4px}
+#painel p{font-size:12px;color:var(--mudo);line-height:1.5;margin-top:6px}
+.linha{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.atalhos{display:flex;gap:6px;overflow-x:auto;padding:0 14px 6px}
+.atalhos a,.atalhos button{flex:none;font-size:12px;text-decoration:none;color:var(--texto);border:1px solid var(--hud2);border-radius:20px;padding:6px 10px;background:var(--hud3)}
+</style>
+</head>
+<body>
+<header>
+ <div class="titulo">J.A.R.V.I.S</div>
+ <div class="modos"><button id="mCel">📱 Celular</button><button id="mPC">💻 PC</button></div>
+ <button id="cfg" title="Configurar">⚙</button>
+</header>
+<div id="status">…</div>
+<div class="atalhos" id="atalhos"></div>
+<div id="conversa"></div>
+<button id="orb" aria-label="Falar"></button>
+<div id="dica">Toque no círculo para falar</div>
+<form id="form"><input id="txt" placeholder="Escreva para o JARVIS…" autocomplete="off"><button>➤</button></form>
+
+<div id="painel"><div>
+ <h3>⚙ CONFIGURAR</h3>
+ <label>Chave do Gemini (para o modo Celular)</label>
+ <input id="chave" type="password" placeholder="cole aqui a chave do aistudio.google.com">
+ <div class="linha"><button id="pegarChave">Trazer a chave do PC</button></div>
+ <p>A chave fica só neste celular. "Trazer do PC" só funciona logado no painel e com a opção ligada no PC (⚙ → App do celular).</p>
+ <label>Modelo</label>
+ <input id="modelo" placeholder="gemini-2.5-flash">
+ <label>Voz</label>
+ <select id="voz"></select>
+ <label><input type="checkbox" id="falarResp" style="flex:none;width:auto"> Falar as respostas em voz alta</label>
+ <div class="linha"><button id="instalar" style="display:none">📲 Instalar o app</button><button id="limpar">Apagar conversa</button><button id="fechar">Fechar</button></div>
+ <p>Para instalar: no Chrome, menu ⋮ → "Instalar app" (ou "Adicionar à tela inicial"). O microfone e a instalação precisam de HTTPS
+ (endereço do Tailscale "https://…ts.net" ou o link da Cloudflare).</p>
+</div></div>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const guardar = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+const ler = (k, p = "") => { try { return localStorage.getItem(k) ?? p; } catch (e) { return p; } };
+const token = (() => { try { return sessionStorage.getItem("jarvis_token") || ""; } catch (e) { return ""; } })();
+let modo = ler("movel_modo", "auto"), pcOk = false, ws = null, historico = [];
+try { historico = JSON.parse(ler("movel_historico", "[]")).slice(-30); } catch (e) { historico = []; }
+
+// ── interface ──────────────────────────────────────────────────────────────
+function bolha(texto, quem) {
+  const d = document.createElement("div"); d.className = "msg " + quem;
+  if (quem === "ele") d.innerHTML = linkar(texto); else d.textContent = texto;
+  $("#conversa").appendChild(d); $("#conversa").scrollTop = 1e9; return d;
+}
+function linkar(t) {
+  const esc = String(t).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+  return esc.replace(/(https?:\/\/[^\s)]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+}
+function orb(estado) { $("#orb").className = estado || ""; $("#dica").textContent = { ouvindo: "Ouvindo…", pensando: "Pensando…", falando: "Falando…" }[estado] || "Toque no círculo para falar"; }
+function modoAtual() { return modo === "auto" ? (pcOk ? "pc" : "celular") : modo; }
+function mostrarStatus() {
+  const m = modoAtual();
+  $("#mCel").classList.toggle("ativo", m === "celular"); $("#mPC").classList.toggle("ativo", m === "pc");
+  const chave = !!ler("movel_chave");
+  $("#status").innerHTML = (m === "pc"
+    ? (pcOk ? "💻 Modo PC: <b>JARVIS completo</b>, com todas as ferramentas" : '<span class="ruim">PC fora do ar</span> — entre pelo painel do PC ou use o modo Celular')
+    : (chave ? "📱 Modo Celular: <b>conversa sem o PC</b>" : '<span class="ruim">Falta a chave do Gemini</span> — toque em ⚙')) + (modo === "auto" ? " · automático" : "");
+  const at = $("#atalhos"); at.innerHTML = "";
+  if (pcOk) for (const [r, h] of [["🛰 Central", "/central"], ["📊 Monitor", "/monitor"], ["🔺 Holograma", "/holograma"], ["🏠 Painel", "/"]]) {
+    const a = document.createElement("a"); a.textContent = r; a.href = h; at.appendChild(a);
+  }
+}
+$("#mCel").onclick = () => { modo = modoAtual() === "celular" && modo !== "auto" ? "auto" : "celular"; guardar("movel_modo", modo); mostrarStatus(); };
+$("#mPC").onclick = () => { modo = modoAtual() === "pc" && modo !== "auto" ? "auto" : "pc"; guardar("movel_modo", modo); mostrarStatus(); if (!token) bolha("Para o modo PC, entre primeiro pelo painel do PC (QR code ou link de entrada) e volte aqui.", "sis"); };
+
+// ── voz ────────────────────────────────────────────────────────────────────
+let vozes = [];
+function carregarVozes() {
+  vozes = (speechSynthesis.getVoices() || []).filter(v => v.lang && v.lang.toLowerCase().startsWith("pt"));
+  const sel = $("#voz"); sel.innerHTML = vozes.map((v, i) => `<option value="${i}">${v.name}</option>`).join("") || "<option>(padrão)</option>";
+  sel.value = ler("movel_voz", "0");
+}
+if ("speechSynthesis" in window) { carregarVozes(); speechSynthesis.onvoiceschanged = carregarVozes; }
+function falar(texto) {
+  if (ler("movel_falar", "1") !== "1" || !("speechSynthesis" in window)) return;
+  const limpo = String(texto).replace(/https?:\/\/\S+/g, "").replace(/[*_#`>]/g, "");
+  const u = new SpeechSynthesisUtterance(limpo); u.lang = "pt-BR";
+  const v = vozes[+ler("movel_voz", "0")]; if (v) u.voice = v;
+  u.onstart = () => orb("falando"); u.onend = () => orb("");
+  speechSynthesis.cancel(); speechSynthesis.speak(u);
+}
+const Reconhecer = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null;
+$("#orb").onclick = () => {
+  if (!Reconhecer) { bolha("Este navegador não reconhece voz. Use o Chrome no Android, ou digite.", "sis"); return; }
+  if (rec) { rec.stop(); return; }
+  speechSynthesis && speechSynthesis.cancel();
+  rec = new Reconhecer(); rec.lang = "pt-BR"; rec.interimResults = false; rec.maxAlternatives = 1;
+  rec.onresult = e => { const t = e.results[0][0].transcript; if (t) enviar(t); };
+  rec.onerror = e => { if (e.error === "not-allowed") bolha("Sem permissão para o microfone (precisa de HTTPS e de permitir).", "sis"); };
+  rec.onend = () => { rec = null; if ($("#orb").className === "ouvindo") orb(""); };
+  orb("ouvindo"); rec.start();
+};
+
+// ── modo PC: o JARVIS completo ─────────────────────────────────────────────
+async function checarPC() {
+  if (!token) { pcOk = false; mostrarStatus(); return; }
+  try {
+    const r = await fetch("/api/monitor/status", { headers: { Authorization: "Bearer " + token } });
+    pcOk = r.ok;
+  } catch (e) { pcOk = false; }
+  mostrarStatus();
+  if (pcOk && !ws) conectarWS();
+}
+let esperandoPC = null;
+function conectarWS() {
+  try {
+    ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws?token=${encodeURIComponent(token)}`);
+    ws.onmessage = ev => { try { const m = JSON.parse(ev.data);
+      if (m.type === "log" && m.speaker === "jarvis" && esperandoPC) { esperandoPC.textContent = ""; esperandoPC.innerHTML = linkar(m.text); esperandoPC = null; orb(""); falar(m.text); }
+      else if (m.type === "log" && m.speaker === "jarvis") { bolha(m.text, "ele"); }
+    } catch (e) {} };
+    ws.onclose = () => { ws = null; setTimeout(checarPC, 5000); };
+  } catch (e) { ws = null; }
+}
+async function enviarPC(texto) {
+  const r = await fetch("/api/command", { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ text: texto }) });
+  if (!r.ok) throw new Error("PC recusou (" + r.status + ")");
+  esperandoPC = bolha("…", "ele"); orb("pensando");
+  setTimeout(() => { if (esperandoPC) { esperandoPC.textContent = "(o JARVIS respondeu no PC)"; esperandoPC = null; orb(""); } }, 45000);
+}
+
+// ── modo Celular: Gemini direto + ferramentas do próprio celular ──────────
+const FERRAMENTAS = [
+  { name: "abrir_link", description: "Abre um link no celular (site, YouTube, mapa).", parameters: { type: "OBJECT", properties: { url: { type: "STRING" } }, required: ["url"] } },
+  { name: "tocar_musica", description: "Toca música no celular: abre a busca no Spotify ou no YouTube Music.", parameters: { type: "OBJECT", properties: { pedido: { type: "STRING" }, servico: { type: "STRING", description: "spotify | youtube" } }, required: ["pedido"] } },
+  { name: "mandar_whatsapp", description: "Prepara uma mensagem de WhatsApp (o usuário escolhe o contato e confirma o envio).", parameters: { type: "OBJECT", properties: { texto: { type: "STRING" }, numero: { type: "STRING", description: "com DDI, só números (opcional)" } }, required: ["texto"] } },
+  { name: "ligar", description: "Abre o discador do celular com o número (o usuário confirma a ligação).", parameters: { type: "OBJECT", properties: { numero: { type: "STRING" } }, required: ["numero"] } },
+  { name: "lembrete", description: "Avisa daqui a N minutos (enquanto o app estiver aberto).", parameters: { type: "OBJECT", properties: { minutos: { type: "NUMBER" }, texto: { type: "STRING" } }, required: ["minutos", "texto"] } },
+  { name: "rota", description: "Abre a rota no Google Maps até um destino.", parameters: { type: "OBJECT", properties: { destino: { type: "STRING" } }, required: ["destino"] } },
+  { name: "pesquisar", description: "Pesquisa na internet algo atual (notícias, preços, placares, clima) e devolve um resumo.", parameters: { type: "OBJECT", properties: { pergunta: { type: "STRING" } }, required: ["pergunta"] } },
+  { name: "mandar_para_pc", description: "Passa um pedido para o JARVIS do PC (só se o PC estiver no ar): controlar o PC, a casa, arquivos…", parameters: { type: "OBJECT", properties: { pedido: { type: "STRING" } }, required: ["pedido"] } },
+];
+function sistema() {
+  const agora = new Date();
+  return `Você é o J.A.R.V.I.S, assistente pessoal do usuário (brasileiro), no app do celular. Fale português do Brasil, com o charme do JARVIS do Homem de Ferro (chame de "senhor" às vezes), em respostas CURTAS (1 a 3 frases), porque elas são faladas. Agora: ${agora.toLocaleString("pt-BR")}. ` +
+    `Use as ferramentas quando ajudarem. Para fatos atuais, use "pesquisar"; não invente. ${pcOk ? "O PC está no ar: para coisas do PC/casa, use mandar_para_pc." : "O PC está fora do ar agora."}`;
+}
+async function gemini(corpo) {
+  const chave = ler("movel_chave"), modelo = ler("movel_modelo") || "gemini-2.5-flash";
+  if (!chave) throw new Error("falta a chave do Gemini (toque em ⚙)");
+  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelo)}:generateContent`,
+    { method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": chave }, body: JSON.stringify(corpo) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error((j.error && j.error.message) || ("Gemini " + r.status));
+  return j;
+}
+const lembretes = [];
+async function executar(nome, a) {
+  switch (nome) {
+    case "abrir_link": window.open(a.url, "_blank"); return { ok: true };
+    case "tocar_musica": {
+      const q = encodeURIComponent(a.pedido || "");
+      const url = String(a.servico || "").toLowerCase().includes("you") ? `https://music.youtube.com/search?q=${q}` : `https://open.spotify.com/search/${q}`;
+      window.open(url, "_blank"); return { ok: true, url };
+    }
+    case "mandar_whatsapp": { const url = `https://wa.me/${(a.numero || "").replace(/\D/g, "")}?text=${encodeURIComponent(a.texto || "")}`; window.open(url, "_blank"); return { ok: true, observacao: "o usuário confirma o envio no WhatsApp" }; }
+    case "ligar": location.href = "tel:" + String(a.numero || "").replace(/[^\d+]/g, ""); return { ok: true };
+    case "rota": window.open("https://www.google.com/maps/dir/?api=1&destination=" + encodeURIComponent(a.destino || ""), "_blank"); return { ok: true };
+    case "lembrete": {
+      const ms = Math.max(1, +a.minutos || 1) * 60000, texto = a.texto || "Lembrete";
+      try { if ("Notification" in window && Notification.permission === "default") await Notification.requestPermission(); } catch (e) {}
+      lembretes.push(setTimeout(async () => {
+        bolha("⏰ " + texto, "ele"); falar("Senhor, lembrete: " + texto);
+        try { const reg = await navigator.serviceWorker.getRegistration(); if (reg && Notification.permission === "granted") reg.showNotification("J.A.R.V.I.S", { body: texto, icon: "/icone-jarvis.svg" }); } catch (e) {}
+      }, ms));
+      return { ok: true, observacao: "funciona enquanto o app estiver aberto" };
+    }
+    case "pesquisar": {
+      const j = await gemini({ contents: [{ role: "user", parts: [{ text: a.pergunta }] }], tools: [{ google_search: {} }] });
+      return { resposta: (((j.candidates || [])[0] || {}).content || { parts: [] }).parts.map(p => p.text || "").join(" ").slice(0, 3000) };
+    }
+    case "mandar_para_pc":
+      if (!pcOk) return { erro: "o PC está fora do ar" };
+      await enviarPC(a.pedido); return { ok: true, observacao: "o JARVIS do PC vai responder em seguida" };
+  }
+  return { erro: "ferramenta desconhecida" };
+}
+async function enviarCelular(texto) {
+  historico.push({ role: "user", parts: [{ text: texto }] });
+  orb("pensando");
+  for (let volta = 0; volta < 4; volta++) {
+    const j = await gemini({ systemInstruction: { parts: [{ text: sistema() }] }, contents: historico.slice(-24), tools: [{ functionDeclarations: FERRAMENTAS }] });
+    const partes = (((j.candidates || [])[0] || {}).content || {}).parts || [];
+    const chamadas = partes.filter(p => p.functionCall);
+    if (!chamadas.length) {
+      const resp = partes.map(p => p.text || "").join("").trim() || "…";
+      historico.push({ role: "model", parts: [{ text: resp }] });
+      guardar("movel_historico", JSON.stringify(historico.slice(-30)));
+      orb(""); bolha(resp, "ele"); falar(resp); return;
+    }
+    historico.push({ role: "model", parts: chamadas });
+    const respostas = [];
+    for (const c of chamadas) {
+      let r; try { r = await executar(c.functionCall.name, c.functionCall.args || {}); } catch (e) { r = { erro: String(e.message || e) }; }
+      respostas.push({ functionResponse: { name: c.functionCall.name, response: r } });
+    }
+    historico.push({ role: "user", parts: respostas });
+  }
+  orb("");
+}
+
+async function enviar(texto) {
+  texto = String(texto || "").trim(); if (!texto) return;
+  bolha(texto, "eu");
+  try {
+    if (modoAtual() === "pc") { if (!pcOk) throw new Error("PC fora do ar"); await enviarPC(texto); }
+    else await enviarCelular(texto);
+  } catch (e) { orb(""); bolha("⚠ " + (e.message || e), "sis"); }
+}
+$("#form").onsubmit = e => { e.preventDefault(); const t = $("#txt").value; $("#txt").value = ""; enviar(t); };
+
+// ── configurar ─────────────────────────────────────────────────────────────
+function abrirPainel(v) { $("#painel").style.display = v ? "flex" : "none"; }
+$("#cfg").onclick = () => { $("#chave").value = ler("movel_chave"); $("#modelo").value = ler("movel_modelo"); $("#falarResp").checked = ler("movel_falar", "1") === "1"; abrirPainel(true); };
+$("#fechar").onclick = () => { guardar("movel_chave", $("#chave").value.trim()); guardar("movel_modelo", $("#modelo").value.trim()); guardar("movel_voz", $("#voz").value); guardar("movel_falar", $("#falarResp").checked ? "1" : "0"); abrirPainel(false); mostrarStatus(); };
+$("#painel").onclick = e => { if (e.target.id === "painel") $("#fechar").onclick(); };
+$("#limpar").onclick = () => { historico = []; guardar("movel_historico", "[]"); $("#conversa").innerHTML = ""; };
+$("#pegarChave").onclick = async () => {
+  if (!token) { alertar("Entre pelo painel do PC primeiro."); return; }
+  try { const r = await fetch("/api/movel/chave", { headers: { Authorization: "Bearer " + token } }); const j = await r.json();
+    if (j.chave) { $("#chave").value = j.chave; alertar("Chave trazida do PC."); } else alertar(j.erro || "O PC não liberou a chave."); }
+  catch (e) { alertar("Sem conexão com o PC."); }
+};
+function alertar(t) { const p = document.createElement("p"); p.textContent = t; p.style.color = "#ffb547"; $("#pegarChave").parentElement.after(p); setTimeout(() => p.remove(), 5000); }
+let pedidoInstalar = null;
+addEventListener("beforeinstallprompt", e => { e.preventDefault(); pedidoInstalar = e; $("#instalar").style.display = ""; });
+$("#instalar").onclick = async () => { if (pedidoInstalar) { pedidoInstalar.prompt(); pedidoInstalar = null; $("#instalar").style.display = "none"; } };
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw-movel.js").catch(() => {});
+
+for (const h of historico.slice(-12)) {
+  const t = (h.parts || []).map(p => p.text || "").join("");
+  if (t && h.role === "user") bolha(t, "eu"); else if (t) bolha(t, "ele");
+}
+if (!historico.length) bolha("Olá, senhor. No modo 📱 Celular eu converso mesmo com o PC desligado; no 💻 PC eu sou o JARVIS completo. Toque no círculo e fale.", "ele");
+mostrarStatus(); checarPC(); setInterval(checarPC, 30000);
+</script>
+</body>
+</html>

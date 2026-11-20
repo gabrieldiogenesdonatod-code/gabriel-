@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>J.A.R.V.I.S BR · Vitrine</title>
+<!-- Fork PT-BR 2.6: modo vitrine. Palco de cinema para o vídeo de divulgação: cada cena tem uma
+     demonstração animada (dados de exemplo), título, legenda da fala e efeitos sonoros (WebAudio).
+     O plugins/vitrine.py manda a cena atual por /api/vitrine; o JARVIS narra com a própria voz.
+     ?demo=1 roda as cenas sozinho (sem o JARVIS), para testar. Esc pula a cena. -->
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--hud:#38d6ff;--texto:#e8fbff;--mudo:#7ea3b4;--ouro:#ffb547}
+html,body{height:100%;background:#02050a;overflow:hidden;color:var(--texto);font-family:'Segoe UI',-apple-system,sans-serif;cursor:none}
+canvas{position:fixed;inset:0;width:100vw;height:100vh}
+iframe{position:fixed;border:1px solid rgba(56,214,255,.45);border-radius:14px;background:#02050a;opacity:0;transition:opacity .6s,transform .6s;
+  box-shadow:0 0 40px rgba(56,214,255,.25);transform:scale(.96);pointer-events:none}
+iframe.on{opacity:1;transform:scale(1)}
+#titulo{position:fixed;left:5vw;bottom:19vh;max-width:90vw;opacity:0;transform:translateX(-30px);transition:.7s cubic-bezier(.2,.8,.2,1)}
+#titulo.on{opacity:1;transform:none}
+#titulo .t{font-weight:800;font-size:clamp(26px,4.6vw,64px);letter-spacing:.04em;text-shadow:0 0 24px rgba(56,214,255,.55)}
+#titulo .s{font-size:clamp(13px,1.6vw,22px);color:var(--hud);letter-spacing:.18em;text-transform:uppercase;margin-top:6px}
+#titulo .barra{height:3px;width:0;background:linear-gradient(90deg,var(--hud),transparent);margin-top:12px;transition:width 1.2s .3s}
+#titulo.on .barra{width:min(46vw,620px)}
+#legenda{position:fixed;left:8vw;right:8vw;bottom:5vh;text-align:center;font-size:clamp(15px,2vw,28px);font-weight:600;line-height:1.35;
+  text-shadow:0 2px 6px #000,0 0 14px rgba(0,0,0,.9);min-height:2.7em}
+#legenda b{color:var(--hud)}
+#contador{position:fixed;right:3vw;top:3vh;font:600 12px Consolas,monospace;color:var(--mudo);letter-spacing:.2em}
+#som{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(2,5,10,.82);font-size:22px;cursor:pointer;z-index:9}
+body.vertical #titulo{left:6vw;bottom:24vh}
+body.vertical #legenda{bottom:8vh}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<iframe id="quadro" title="demonstração"></iframe>
+<div id="titulo"><div class="t"></div><div class="s"></div><div class="barra"></div></div>
+<div id="legenda"></div>
+<div id="contador"></div>
+<div id="som">🔊 Clique para ligar o som da apresentação</div>
+<script>
+"use strict";
+const Q = new URLSearchParams(location.search), T = Q.get("t") || "", DEMO = Q.has("demo");
+const cv = document.getElementById("c"), ctx = cv.getContext("2d"), quadro = document.getElementById("quadro");
+const tituloEl = document.getElementById("titulo"), legEl = document.getElementById("legenda"), contEl = document.getElementById("contador");
+let W = 0, H = 0, DPR = 1;
+function ajustar(){ DPR = devicePixelRatio || 1; W = cv.width = innerWidth * DPR; H = cv.height = innerHeight * DPR;
+  document.body.classList.toggle("vertical", innerHeight > innerWidth); }
+addEventListener("resize", ajustar); ajustar();
+const AZUL = "56,214,255", OURO = "255,181,71", VERM = "255,77,94", VERDE = "61,255,160";
+
+// ── som (gerado na hora) ─────────────────────────────────────────────────
+let ac = null;
+function audio(){ if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)(); if (ac.state === "suspended") ac.resume(); return ac; }
+function tom(f, dur, tipo = "sine", vol = .08, quando = 0, f2 = null){
+  try { const a = audio(), o = a.createOscillator(), g = a.createGain(), t0 = a.currentTime + quando;
+    o.type = tipo; o.frequency.setValueAtTime(f, t0); if (f2) o.frequency.exponentialRampToValueAtTime(f2, t0 + dur);
+    g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(.0001, t0 + dur);
+    o.connect(g); g.connect(a.destination); o.start(t0); o.stop(t0 + dur); } catch (e) {}
+}
+function ruido(dur, vol = .12, de = 400, ate = 4000, quando = 0){
+  try { const a = audio(), n = Math.floor(a.sampleRate * dur), b = a.createBuffer(1, n, a.sampleRate), d = b.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+    const s = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain(), t0 = a.currentTime + quando;
+    s.buffer = b; f.type = "bandpass"; f.Q.value = 1.2; f.frequency.setValueAtTime(de, t0); f.frequency.exponentialRampToValueAtTime(ate, t0 + dur);
+    g.gain.setValueAtTime(.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0 + dur * .4); g.gain.exponentialRampToValueAtTime(.0001, t0 + dur);
+    s.connect(f); f.connect(g); g.connect(a.destination); s.start(t0); } catch (e) {}
+}
+const SOM = {
+  whoosh(){ ruido(.7, .16, 300, 5000); },
+  bip(){ tom(1320, .08, "square", .03); },
+  ok(){ tom(880, .12, "triangle", .07); tom(1320, .18, "triangle", .06, .1); },
+  alerta(){ tom(660, .15, "triangle", .08); tom(990, .25, "triangle", .07, .16); },
+  boot(){ tom(55, 2.2, "sawtooth", .05, 0, 110); ruido(2.2, .05, 100, 900); tom(220, 1.6, "sine", .06, .8, 880); },
+  repulsor(){ tom(300, .35, "sawtooth", .05, 0, 1800); ruido(.5, .3, 3000, 200, .35); tom(70, .5, "sine", .3, .35); },
+  chuva(){ ruido(3, .05, 2000, 2600); },
+  tique(){ tom(2400, .03, "square", .02); },
+  vitoria(){ [523, 659, 784, 1047].forEach((f, i) => tom(f, .25, "triangle", .06, i * .11)); },
+};
+setTimeout(() => { if (ac && ac.state !== "running" || !ac) { try { audio(); } catch (e) {} if (!ac || ac.state !== "running") document.getElementById("som").style.display = "flex"; } }, 900);
+document.getElementById("som").onclick = e => { audio(); e.currentTarget.style.display = "none"; };
+
+// ── estado ───────────────────────────────────────────────────────────────
+let cena = null, indice = -2, inicio = performance.now(), falando = false, nivel = 0, nivelSuave = 0, fim = false, credito = "";
+let total = 0;
+function entrarCena(c, i){
+  cena = c; indice = i; inicio = performance.now(); particulas = [];
+  tituloEl.classList.remove("on"); quadro.classList.remove("on");
+  if (!c) return;
+  setTimeout(() => { tituloEl.querySelector(".t").textContent = c.titulo || ""; tituloEl.querySelector(".s").textContent = c.sub || "";
+    tituloEl.classList.toggle("on", c.visual !== "abertura" && c.visual !== "fim"); }, 250);
+  const paginas = {mao: "/mao?simular=1&t=", avatar: "/avatar_demo?demo=1&t=", jogos: "/arcade?t="};
+  if (paginas[c.visual]){ quadro.src = paginas[c.visual] + encodeURIComponent(T); setTimeout(() => quadro.classList.add("on"), 500); }
+  else quadro.removeAttribute("src");
+  posicionarQuadro();
+  if (c.visual === "abertura") SOM.boot(); else SOM.whoosh();
+  if (c.visual === "repulsor") setTimeout(SOM.repulsor, 2600);
+  if (c.visual === "radar") SOM.chuva();
+  if (c.visual === "fim") setTimeout(SOM.vitoria, 600);
+  contEl.textContent = c.visual === "abertura" ? "" : `${String(i + 1).padStart(2, "0")} / ${String(total).padStart(2, "0")}`;
+  legenda(c.fala || "");
+}
+function posicionarQuadro(){
+  const v = innerHeight > innerWidth;
+  const w = v ? innerWidth * .9 : innerWidth * .52, h = v ? innerHeight * .42 : innerHeight * .6;
+  Object.assign(quadro.style, {width: w + "px", height: h + "px", left: (v ? innerWidth * .05 : innerWidth * .44) + "px", top: (v ? innerHeight * .12 : innerHeight * .1) + "px"});
+}
+let legTimer = null;
+function legenda(texto){
+  clearInterval(legTimer); legEl.innerHTML = "";
+  const palavras = texto.split(" "); let n = 0;
+  const comeca = performance.now() + 1300;
+  legTimer = setInterval(() => {
+    if (performance.now() < comeca) return;
+    if (!falando && !DEMO && performance.now() - comeca < 6000 && n === 0) return;     // espera a voz começar
+    n++; legEl.innerHTML = palavras.slice(Math.max(0, n - 16), n).join(" ");
+    if (n >= palavras.length) clearInterval(legTimer);
+  }, 190);
+}
+async function puxar(){
+  try {
+    const d = await (await fetch("/api/vitrine?t=" + encodeURIComponent(T))).json();
+    falando = d.falando; nivel = d.nivel || 0; total = d.total; credito = d.credito || credito;
+    if (d.indice !== indice){ if (d.fim){ fim = true; entrarCena({visual: "creditos"}, d.indice); tituloEl.classList.remove("on"); legEl.innerHTML = ""; contEl.textContent = ""; }
+      else entrarCena(d.cena, d.indice); }
+  } catch (e) {}
+}
+document.addEventListener("keydown", e => { if (e.key === "Escape" && T) fetch("/api/vitrine/cmd?t=" + encodeURIComponent(T), {method: "POST", body: JSON.stringify({acao: "pular"})}); });
+
+// ── desenho: utilidades ──────────────────────────────────────────────────
+let particulas = [];
+const ease = x => 1 - Math.pow(1 - Math.min(1, Math.max(0, x)), 3);
+function texto(s, x, y, tam, cor = "#e8fbff", alinhar = "center", peso = 700){ ctx.font = `${peso} ${tam * DPR}px Segoe UI, sans-serif`; ctx.textAlign = alinhar; ctx.fillStyle = cor; ctx.fillText(s, x, y); }
+function caixa(x, y, w, h, r = 14, cor = AZUL, a = .12){
+  ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, y, w, h, r * DPR) : ctx.rect(x, y, w, h);
+  ctx.fillStyle = `rgba(${cor},${a})`; ctx.fill(); ctx.strokeStyle = `rgba(${cor},.7)`; ctx.lineWidth = 1.5 * DPR; ctx.stroke();
+}
+function nucleo(x, y, r, t, energia = 0){
+  const pulso = 1 + energia * .25 + Math.sin(t * 2) * .03;
+  const g = ctx.createRadialGradient(x, y, 0, x, y, r * .55 * pulso);
+  g.addColorStop(0, "rgba(225,250,255,1)"); g.addColorStop(.25, `rgba(${AZUL},.9)`); g.addColorStop(1, `rgba(${AZUL},0)`);
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r * .55 * pulso, 0, 7); ctx.fill();
+  ctx.lineCap = "round";
+  for (let k = 0; k < 3; k++){ const raio = r * (.62 + k * .13), v = (k % 2 ? -1 : 1) * (.6 + k * .25);
+    ctx.strokeStyle = `rgba(${AZUL},${.75 - k * .18})`; ctx.lineWidth = r * (.03 - k * .006);
+    for (let s = 0; s < 6 + k * 2; s++){ const a = t * v + s * Math.PI * 2 / (6 + k * 2); ctx.beginPath(); ctx.arc(x, y, raio, a, a + .5 + energia * .3); ctx.stroke(); } }
+}
+function grade(t){
+  ctx.strokeStyle = "rgba(56,214,255,.05)"; ctx.lineWidth = 1;
+  const p = 60 * DPR, off = (t * 12 * DPR) % p;
+  for (let x = -off; x < W; x += p){ ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+  for (let y = -off; y < H; y += p){ ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+}
+// área da demonstração (à direita no 16:9, em cima no 9:16)
+function area(){ const v = H > W; return v ? {x: W * .06, y: H * .1, w: W * .88, h: H * .45} : {x: W * .44, y: H * .1, w: W * .52, h: H * .6}; }
+
+// ── as cenas ─────────────────────────────────────────────────────────────
+const VISUAIS = {
+  abertura(t){
+    const r = Math.min(W, H) * .2 * ease(t / 1.6);
+    nucleo(W / 2, H * .42, r, t, nivelSuave);
+    if (t > 1.6){ const a = ease((t - 1.6) / .8); ctx.globalAlpha = a;
+      const gl = t < 2.2 && Math.random() < .3 ? (Math.random() - .5) * 18 * DPR : 0;
+      texto("J.A.R.V.I.S BR", W / 2 + gl, H * .72, Math.min(W, H) * .085 / DPR, "#e8fbff", "center", 800);
+      texto("ASSISTENTE DE VOZ EM PORTUGUÊS · 2.6", W / 2, H * .79, Math.min(W, H) * .022 / DPR, `rgb(${AZUL})`, "center", 600);
+      ctx.globalAlpha = 1; }
+  },
+  voz(t){
+    const A = area(); caixa(A.x, A.y, A.w, A.h);
+    const meio = A.y + A.h * .55, n = 64;
+    for (let i = 0; i < n; i++){ const x = A.x + A.w * (i + .5) / n;
+      const amp = (falando ? .25 + nivelSuave : .08 + .06 * Math.sin(t * 3 + i)) * A.h * .32 * Math.abs(Math.sin(i * .35 + t * 6));
+      ctx.fillStyle = `rgba(${AZUL},.85)`; ctx.fillRect(x - 2 * DPR, meio - amp, 4 * DPR, amp * 2); }
+    const bolhas = [["Você", "Jarvis, abre o Spotify e toca Kaiser", 1], ["JARVIS", "Tocando agora, senhor.", 2.6], ["Você", "Jarvis, esp—", 4.2], ["JARVIS", "(parou e está ouvindo)", 4.8]];
+    bolhas.forEach(([quem, msg, quando], i) => { if (t < quando) return; const a = ease((t - quando) / .4);
+      ctx.globalAlpha = a; texto(`${quem}: ${msg}`, A.x + 24 * DPR, A.y + (40 + i * 34) * DPR, 18, quem === "Você" ? "#e8fbff" : `rgb(${AZUL})`, "left", 600); ctx.globalAlpha = 1; });
+  },
+  pc(t){
+    const A = area(); caixa(A.x, A.y, A.w, A.h);
+    const itens = [["CPU", .32 + .25 * Math.sin(t * 1.3) ** 2], ["RAM", .58 + .05 * Math.sin(t)], ["GPU", .45 + .3 * Math.sin(t * .8) ** 2], ["DISCO", .71]];
+    itens.forEach(([nome, v], i) => { const cx = A.x + A.w * (i + .5) / 4, cy = A.y + A.h * .42, r = Math.min(A.w / 10, A.h / 4);
+      ctx.lineWidth = 10 * DPR; ctx.strokeStyle = "rgba(56,214,255,.12)"; ctx.beginPath(); ctx.arc(cx, cy, r, Math.PI * .75, Math.PI * 2.25); ctx.stroke();
+      ctx.strokeStyle = v > .8 ? `rgb(${VERM})` : `rgb(${AZUL})`; ctx.beginPath(); ctx.arc(cx, cy, r, Math.PI * .75, Math.PI * (.75 + 1.5 * v * ease(t / 1.2))); ctx.stroke();
+      texto(Math.round(v * 100) + "%", cx, cy + 8 * DPR, 24); texto(nome, cx, cy + r + 26 * DPR, 14, `rgb(${AZUL})`); });
+    const avisos = [["✓ Chrome travado: fechado", 2.5], ["✓ 3,2 GB de lixo limpos", 4], ["⚠ Temperatura da GPU subindo: 82 °C", 5.5]];
+    avisos.forEach(([s, q], i) => { if (t > q){ if (Math.abs(t - q) < .05) SOM.bip(); texto(s, A.x + 24 * DPR, A.y + A.h - (90 - i * 28) * DPR, 16, s.startsWith("⚠") ? `rgb(${OURO})` : `rgb(${VERDE})`, "left", 600); } });
+  },
+  visao(t){
+    const A = area(); caixa(A.x, A.y, A.w, A.h, 10, AZUL, .05);
+    ctx.font = `${14 * DPR}px Consolas, monospace`; ctx.textAlign = "left";
+    const linhas = ["def total(vendas):", "    soma = 0", "    for v in vendas:", "        soma += v['valor']", "    return soma / len(vendas)", "", "total([])", "ZeroDivisionError: division by zero"];
+    linhas.forEach((l, i) => { ctx.fillStyle = i === 7 ? `rgb(${VERM})` : "#bfe9f7"; ctx.fillText(l, A.x + 24 * DPR, A.y + (40 + i * 24) * DPR); });
+    const y = A.y + ((t * 120) % (A.h / DPR)) * DPR;
+    ctx.fillStyle = `rgba(${AZUL},.18)`; ctx.fillRect(A.x, y, A.w, 3 * DPR);
+    if (t > 3){ const a = ease((t - 3) / .5); ctx.globalAlpha = a; caixa(A.x + A.w * .3, A.y + A.h * .62, A.w * .66, A.h * .3, 12, VERDE, .12);
+      texto("Lista vazia divide por zero.", A.x + A.w * .33, A.y + A.h * .72, 17, "#e8fbff", "left", 700);
+      texto("Use: return soma / len(vendas) if vendas else 0", A.x + A.w * .33, A.y + A.h * .8, 15, `rgb(${VERDE})`, "left", 500); ctx.globalAlpha = 1; }
+  },
+  boleto(t){
+    const A = area(); const bx = A.x + A.w * .08, by = A.y + A.h * .1, bw = A.w * .84, bh = A.h * .5;
+    caixa(bx, by, bw, bh, 8, "220,235,245", .06);
+    texto("EQUATORIAL GOIÁS · CONTA DE ENERGIA", bx + 20 * DPR, by + 32 * DPR, 16, "#e8fbff", "left");
+    texto("Vencimento: 13/11/2026      Total: R$ 142,00", bx + 20 * DPR, by + 62 * DPR, 15, "#bfe9f7", "left", 500);
+    for (let i = 0; i < 70; i++){ const w = (i * 7) % 3 + 1; ctx.fillStyle = "#dfefff"; ctx.fillRect(bx + 20 * DPR + i * (bw - 40 * DPR) / 70, by + bh - 70 * DPR, w * DPR, 44 * DPR); }
+    const sx = bx + (bw * ((t * .45) % 1)); if (t < 3){ ctx.fillStyle = `rgba(${AZUL},.7)`; ctx.shadowColor = `rgb(${AZUL})`; ctx.shadowBlur = 20; ctx.fillRect(sx, by, 3 * DPR, bh); ctx.shadowBlur = 0; }
+    if (t > 3.2){ if (t < 3.25) SOM.ok(); texto("✓ dígitos conferidos", bx + bw - 20 * DPR, by + 32 * DPR, 14, `rgb(${VERDE})`, "right", 600); }
+    if (t > 4){ if (t < 4.05) SOM.alerta(); const a = ease((t - 4) / .5); ctx.globalAlpha = a;
+      caixa(A.x + A.w * .12, A.y + A.h * .7, A.w * .76, A.h * .2, 14, OURO, .14);
+      texto("🔔  A conta de luz vence sexta, R$ 142.", A.x + A.w * .5, A.y + A.h * .82, 22, "#fff3dc"); ctx.globalAlpha = 1; }
+  },
+  encomenda(t){
+    const A = area(); caixa(A.x, A.y, A.w, A.h);
+    const etapas = ["Postado", "Em trânsito", "Na sua cidade", "Saiu pra entrega"], prog = Math.min(3, t / 1.3);
+    const y = A.y + A.h * .42, x0 = A.x + A.w * .1, x1 = A.x + A.w * .9;
+    ctx.strokeStyle = "rgba(56,214,255,.2)"; ctx.lineWidth = 6 * DPR; ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x1, y); ctx.stroke();
+    ctx.strokeStyle = `rgb(${AZUL})`; ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x0 + (x1 - x0) * prog / 3, y); ctx.stroke();
+    etapas.forEach((e, i) => { const x = x0 + (x1 - x0) * i / 3, ok = prog >= i;
+      ctx.fillStyle = ok ? (i === 3 ? `rgb(${OURO})` : `rgb(${AZUL})`) : "#0c2230"; ctx.beginPath(); ctx.arc(x, y, 12 * DPR, 0, 7); ctx.fill();
+      texto(e, x, y + 40 * DPR, 14, ok ? "#e8fbff" : "#4d6d7c", "center", 600); });
+    texto("📦 fone bluetooth · Shopee · QB123456785BR", A.x + A.w / 2, A.y + 46 * DPR, 17, "#bfe9f7", "center", 600);
+    if (t > 4.2){ if (t < 4.25) SOM.alerta(); const a = ease((t - 4.2) / .5); ctx.globalAlpha = a; caixa(A.x + A.w * .1, A.y + A.h * .7, A.w * .8, A.h * .18, 14, OURO, .14);
+      texto("Senhor, sua encomenda saiu pra entrega.", A.x + A.w / 2, A.y + A.h * .81, 21, "#fff3dc"); ctx.globalAlpha = 1; }
+  },
+  radar(t){
+    const A = area(), cx = A.x + A.w / 2, cy = A.y + A.h / 2, R = Math.min(A.w, A.h) * .46;
+    ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, R, 0, 7); ctx.clip();
+    ctx.fillStyle = "#04121b"; ctx.fillRect(cx - R, cy - R, R * 2, R * 2);
+    for (const [ox, oy, rr] of [[-.75, -.1, .35], [-.55, .2, .25], [-.9, .3, .2]]){ const x = cx + (ox + t * .07) * R, y = cy + oy * R;
+      const g = ctx.createRadialGradient(x, y, 0, x, y, rr * R); g.addColorStop(0, "rgba(255,181,71,.8)"); g.addColorStop(.4, "rgba(61,255,160,.55)"); g.addColorStop(1, "rgba(56,214,255,0)");
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, rr * R, 0, 7); ctx.fill(); }
+    const a = t * 2; ctx.fillStyle = "rgba(56,214,255,.12)"; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, R, a, a + .5); ctx.fill();
+    ctx.restore();
+    ctx.strokeStyle = "rgba(56,214,255,.4)"; ctx.lineWidth = 1.5 * DPR; for (const k of [1, .66, .33]){ ctx.beginPath(); ctx.arc(cx, cy, R * k, 0, 7); ctx.stroke(); }
+    ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(cx, cy, 6 * DPR, 0, 7); ctx.fill(); texto("🏠 sua casa", cx, cy - 14 * DPR, 13);
+    const min = Math.max(5, Math.round(20 - t * 1.2)); texto(`chuva chegando em ~${min} min`, cx, A.y + A.h + 4 * DPR, 18, `rgb(${OURO})`);
+  },
+  foco(t){
+    const A = area(), cx = A.x + A.w * .3, cy = A.y + A.h * .5, r = Math.min(A.w, A.h) * .3, resto = 12 * 60 - t;
+    ctx.lineWidth = 14 * DPR; ctx.strokeStyle = "rgba(56,214,255,.12)"; ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.stroke();
+    ctx.strokeStyle = `rgb(${AZUL})`; ctx.beginPath(); ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * resto / 1500); ctx.stroke();
+    texto(`${Math.floor(resto / 60)}:${String(Math.floor(resto % 60)).padStart(2, "0")}`, cx, cy + 14 * DPR, 44); texto("FOCO", cx, cy + 46 * DPR, 14, `rgb(${AZUL})`);
+    const px = A.x + A.w * .72, py = A.y + A.h * .42, pw = A.w * .16, ph = pw * 1.7;
+    caixa(px - pw / 2, py - ph / 2, pw, ph, 12, "200,220,235", .08);
+    if (t > 1.5){ const a = ease((t - 1.5) / .3); ctx.strokeStyle = `rgba(${VERM},${a})`; ctx.lineWidth = 3 * DPR; ctx.strokeRect(px - pw / 2 - 12 * DPR, py - ph / 2 - 12 * DPR, pw + 24 * DPR, ph + 24 * DPR);
+      texto("celular na mão", px, py - ph / 2 - 22 * DPR, 14, `rgb(${VERM})`); if (t < 1.55) SOM.alerta(); }
+    if (t > 2.6){ const a = ease((t - 2.6) / .5); ctx.globalAlpha = a; texto("“O celular pode esperar mais 12 minutos.”", A.x + A.w / 2, A.y + A.h * .95, 19, "#fff3dc"); ctx.globalAlpha = 1; }
+  },
+  grafo(t){
+    const A = area(), cx = A.x + A.w / 2, cy = A.y + A.h / 2;
+    const nos = ["Você", "Capacete", "ESP32", "LED", "Loja", "Moletom", "Kaiser", "Rap", "Roblox", "Python", "Goiânia", "Ideia: app"];
+    const pos = nos.map((n, i) => { if (!i) return [cx, cy]; const a = i / (nos.length - 1) * Math.PI * 2 + t * .1, rr = (i % 2 ? .3 : .42) * Math.min(A.w, A.h * 1.6);
+      return [cx + Math.cos(a) * rr, cy + Math.sin(a) * rr * .62]; });
+    const lig = [[0, 1], [1, 2], [2, 3], [0, 4], [4, 5], [0, 6], [6, 7], [0, 8], [0, 9], [9, 11], [0, 10], [4, 11], [1, 3]];
+    lig.forEach(([a, b], k) => { if (t < k * .2) return; ctx.strokeStyle = `rgba(${AZUL},.35)`; ctx.lineWidth = 1.5 * DPR; ctx.beginPath(); ctx.moveTo(...pos[a]); ctx.lineTo(...pos[b]); ctx.stroke(); });
+    nos.forEach((n, i) => { if (t < i * .15) return; const [x, y] = pos[i];
+      ctx.fillStyle = i ? `rgba(${AZUL},.9)` : `rgb(${OURO})`; ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = 16; ctx.beginPath(); ctx.arc(x, y, (i ? 7 : 12) * DPR, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
+      texto(n, x, y - 16 * DPR, 13, "#e8fbff", "center", 600); });
+  },
+  loja(t){
+    const A = area(); caixa(A.x, A.y, A.w, A.h);
+    const vendas = Math.min(7, Math.floor(t / .7)), valor = vendas * 89.9;
+    texto("VENDAS HOJE", A.x + A.w * .25, A.y + A.h * .22, 15, `rgb(${AZUL})`); texto(String(vendas), A.x + A.w * .25, A.y + A.h * .45, 70);
+    texto("FATURAMENTO", A.x + A.w * .7, A.y + A.h * .22, 15, `rgb(${AZUL})`); texto("R$ " + valor.toFixed(2).replace(".", ","), A.x + A.w * .7, A.y + A.h * .45, 44);
+    if (vendas && Math.floor(t / .7) !== Math.floor((t - .02) / .7)) SOM.tique();
+    const itens = ["📸 Post do moletom novo pronto", "💬 3 respostas para clientes esperando você aprovar", "📦 Estoque baixo: camiseta P (2)"];
+    itens.forEach((s, i) => { if (t > 2 + i * 1.1) texto(s, A.x + 28 * DPR, A.y + A.h * (.66 + i * .1), 16, "#bfe9f7", "left", 600); });
+  },
+  repulsor(t){
+    const A = area(), cx = A.x + A.w * .5, cy = A.y + A.h * .5;
+    const carga = Math.min(1, t / 2.6), tiro = t > 2.6 && t < 3.4;
+    for (let i = 0; i < 6; i++){ ctx.strokeStyle = `rgba(${AZUL},${.15 + carga * .5})`; ctx.lineWidth = 3 * DPR; ctx.beginPath(); ctx.arc(cx, cy, (30 + i * 16) * DPR * (1 - carga * .3), t * 3 + i, t * 3 + i + 2); ctx.stroke(); }
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, (40 + carga * 50) * DPR); g.addColorStop(0, "#fff"); g.addColorStop(.3, `rgba(${AZUL},.9)`); g.addColorStop(1, `rgba(${AZUL},0)`);
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, (40 + carga * 50) * DPR, 0, 7); ctx.fill();
+    if (tiro){ const k = (t - 2.6) / .8; ctx.fillStyle = `rgba(220,250,255,${1 - k})`; ctx.fillRect(cx, cy - 30 * DPR * (1 - k), W, 60 * DPR * (1 - k)); }
+    const lx = A.x, ly = A.y + A.h - 50 * DPR; ctx.fillStyle = "#120404"; ctx.fillRect(lx, ly, A.w, 44 * DPR);
+    ctx.save(); ctx.beginPath(); ctx.rect(lx, ly, A.w, 44 * DPR); ctx.clip();
+    texto("15:42 * > Lo-fi para codar * Hoje: 7 vendas * Aviso: a conta de luz vence sexta", lx + A.w - ((t * 160 * DPR) % (A.w * 2.4)), ly + 31 * DPR, 22, "#ff3b30", "left", 800);
+    ctx.restore();
+  },
+  creditos(t){
+    nucleo(W / 2, H * .38, Math.min(W, H) * .14, t, nivelSuave);
+    texto("J.A.R.V.I.S BR", W / 2, H * .64, Math.min(W, H) * .07 / DPR, "#e8fbff", "center", 800);
+    texto(credito, W / 2, H * .72, Math.min(W, H) * .02 / DPR, "#7ea3b4", "center", 500);
+  },
+};
+VISUAIS.fim = VISUAIS.abertura;
+VISUAIS.mao = VISUAIS.avatar = VISUAIS.jogos = function(t){ const A = area(); ctx.strokeStyle = `rgba(${AZUL},.25)`; ctx.lineWidth = 1; ctx.strokeRect(A.x - 8 * DPR, A.y - 8 * DPR, A.w + 16 * DPR, A.h + 16 * DPR); };
+
+function lateral(t){                       // o JARVIS "presente" no canto, falando
+  if (!cena || ["abertura", "fim", "creditos"].includes(cena.visual)) return;
+  const v = H > W, r = Math.min(W, H) * (v ? .09 : .11);
+  nucleo(v ? W - r * 1.4 : W * .2, v ? H * .64 : H * .36, r, t, nivelSuave);
+}
+
+function quadroAnim(ms){
+  const t = ms / 1000, tc = (ms - inicio) / 1000;
+  nivelSuave += ((falando ? Math.max(.25, nivel) : 0) - nivelSuave) * .2;
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = "#02050a"; ctx.fillRect(0, 0, W, H);
+  const fundo = ctx.createRadialGradient(W * .5, H * .3, 0, W * .5, H * .5, Math.max(W, H) * .8);
+  fundo.addColorStop(0, "#0a1c28"); fundo.addColorStop(1, "#02050a"); ctx.fillStyle = fundo; ctx.fillRect(0, 0, W, H);
+  grade(t);
+  if (cena && VISUAIS[cena.visual]) { try { VISUAIS[cena.visual](tc); } catch (e) {} }
+  lateral(t);
+  ctx.fillStyle = "rgba(255,255,255,.012)"; for (let y = 0; y < H; y += 3 * DPR) ctx.fillRect(0, y, W, 1);      // linhas de TV
+  requestAnimationFrame(quadroAnim);
+}
+requestAnimationFrame(quadroAnim);
+
+if (DEMO){
+  const cenas = ["abertura", "voz", "pc", "visao", "boleto", "encomenda", "radar", "foco", "grafo", "loja", "repulsor", "mao", "avatar", "jogos", "fim"]
+    .map(v => ({visual: v, titulo: v.toUpperCase(), sub: "demonstração", fala: "Fala de exemplo da cena " + v + "."}));
+  total = cenas.length; let i = Q.get("cena") ? cenas.findIndex(c => c.visual === Q.get("cena")) : 0;
+  entrarCena(cenas[i], i);
+  if (!Q.get("cena")) setInterval(() => { i = (i + 1) % cenas.length; entrarCena(cenas[i], i); }, 7000);
+} else { puxar(); setInterval(puxar, 250); }
+</script>
+</body>
+</html>

@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JARVIS · Monitor</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #07090f; --surface: rgba(255,255,255,0.04); --border: rgba(255,255,255,0.08);
+      --accent: #6366f1; --text: #dde3ed; --muted: #6b778c; --green: #22c55e;
+      --amber: #f59e0b; --red: #ef4444;
+    }
+    html, body { background: var(--bg); color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    header { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 10px;
+      padding: 12px 16px; border-bottom: 1px solid var(--border); background: rgba(7,9,15,0.96); }
+    .logo { font-size: 15px; font-weight: 700; letter-spacing: 6px; }
+    .logo em { color: var(--accent); font-style: normal; }
+    header a { color: var(--muted); text-decoration: none; font-size: 13px; margin-left: auto;
+      border: 1px solid var(--border); padding: 6px 10px; border-radius: 10px; }
+    #hora { font-size: 11px; color: var(--muted); }
+    main { padding: 14px 16px 90px; max-width: 760px; margin: 0 auto; }
+    h2 { font-size: 11px; letter-spacing: 2px; color: var(--muted); margin: 18px 0 8px; text-transform: uppercase; }
+    .grade { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    @media (min-width: 560px) { .grade { grid-template-columns: repeat(4, 1fr); } }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 12px; }
+    .card .rot { font-size: 10px; letter-spacing: 1.5px; color: var(--muted); }
+    .card .val { font-size: 24px; font-weight: 700; margin-top: 4px; }
+    .card .det { font-size: 11px; color: var(--muted); margin-top: 2px; min-height: 14px; }
+    .barra { height: 5px; background: rgba(255,255,255,0.07); border-radius: 9px; margin-top: 8px; overflow: hidden; }
+    .barra > i { display: block; height: 100%; background: var(--accent); width: 0; transition: width .4s; }
+    .ok { color: var(--green); } .alerta { color: var(--amber); } .ruim { color: var(--red); }
+    .linha { display: flex; justify-content: space-between; gap: 8px; padding: 9px 0;
+      border-bottom: 1px solid var(--border); font-size: 13px; align-items: center; }
+    .linha .nome { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+    .linha .num { color: var(--muted); font-variant-numeric: tabular-nums; min-width: 64px; text-align: right; }
+    .x { background: none; border: 1px solid rgba(239,68,68,0.35); color: var(--red); border-radius: 8px;
+      padding: 4px 8px; font-size: 11px; }
+    .acoes { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    @media (min-width: 560px) { .acoes { grid-template-columns: repeat(4, 1fr); } }
+    .acoes button, .app button { background: var(--surface); border: 1px solid var(--border); color: var(--text);
+      border-radius: 12px; padding: 13px 8px; font-size: 13px; font-weight: 600; }
+    .acoes button:active, .app button:active { transform: scale(0.97); }
+    .perigo { border-color: rgba(239,68,68,0.35) !important; color: var(--red) !important; }
+    .app { display: flex; gap: 8px; margin-top: 10px; }
+    .app input { flex: 1; background: var(--surface); border: 1px solid var(--border); color: var(--text);
+      border-radius: 12px; padding: 12px; font-size: 15px; }
+    select { background: var(--surface); color: var(--text); border: 1px solid var(--border);
+      border-radius: 8px; padding: 4px 6px; font-size: 12px; }
+    #toast { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); max-width: 92%;
+      background: rgba(99,102,241,0.18); border: 1px solid rgba(99,102,241,0.45); color: var(--text);
+      padding: 10px 16px; border-radius: 14px; font-size: 13px; opacity: 0; transition: opacity .25s;
+      pointer-events: none; }
+    #toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo"><em>J</em>ARVIS</div>
+    <span id="hora">conectando…</span>
+    <a href="/">💬 Conversa</a>
+  </header>
+  <main>
+    <div class="grade">
+      <div class="card"><div class="rot">CPU</div><div class="val" id="cpu">—</div><div class="det" id="cpu-d"></div><div class="barra"><i id="cpu-b"></i></div></div>
+      <div class="card"><div class="rot">RAM</div><div class="val" id="ram">—</div><div class="det" id="ram-d"></div><div class="barra"><i id="ram-b"></i></div></div>
+      <div class="card"><div class="rot">GPU</div><div class="val" id="gpu">—</div><div class="det" id="gpu-d"></div><div class="barra"><i id="gpu-b"></i></div></div>
+      <div class="card"><div class="rot">INTERNET</div><div class="val" id="net">—</div><div class="det" id="net-d"></div></div>
+    </div>
+
+    <h2>Rede</h2>
+    <div class="card" id="rede">—</div>
+
+    <h2>Discos</h2>
+    <div class="card" id="discos">—</div>
+
+    <h2>Ações</h2>
+    <div class="acoes">
+      <button onclick="acao('bloquear')">🔒 Bloquear</button>
+      <button onclick="acao('mudo')">🔇 Mudo</button>
+      <button onclick="acao('modo_jogo', estado.modo_jogo ? 'desligar' : 'ligar')" id="btn-jogo">🎮 Modo jogo</button>
+      <button onclick="acao('cancelar')">✕ Cancelar desligamento</button>
+      <button class="perigo" onclick="confirmar('desligar', 'Desligar o PC em 60 segundos?')">⏻ Desligar</button>
+      <button class="perigo" onclick="confirmar('reiniciar', 'Reiniciar o PC em 60 segundos?')">↻ Reiniciar</button>
+    </div>
+    <div class="app">
+      <input id="app" placeholder="Abrir app (ex.: zap, spotify, vs code)" autocomplete="off">
+      <button onclick="abrirApp()">Abrir</button>
+    </div>
+
+    <h2>Top de processos
+      <select id="ordem" onchange="carregarProcessos()">
+        <option value="cpu">CPU</option><option value="ram">RAM</option>
+        <option value="disco">Disco</option><option value="rede">Conexões</option>
+      </select>
+    </h2>
+    <div class="card" id="procs">—</div>
+  </main>
+  <div id="toast"></div>
+
+  <script>
+    const token = sessionStorage.getItem('jarvis_token');
+    if (!token) location.replace('/login');
+    const estado = {};
+
+    function esc(t) {
+      return String(t ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+    function tam(n) {
+      if (n == null) return '—';
+      const u = ['B','KB','MB','GB','TB']; let i = 0; n = Number(n);
+      while (Math.abs(n) >= 1024 && i < u.length - 1) { n /= 1024; i++; }
+      return n.toLocaleString('pt-BR', {maximumFractionDigits: i < 2 ? 0 : 1}) + ' ' + u[i];
+    }
+    function pct(v) { return v == null ? '—' : Math.round(v) + '%'; }
+    function cor(v, a, b) { return v == null ? '' : v >= b ? 'ruim' : v >= a ? 'alerta' : 'ok'; }
+    function toast(msg) {
+      const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show');
+      clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 4500);
+    }
+    async function api(url, opts = {}) {
+      opts.headers = Object.assign({'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json'}, opts.headers || {});
+      const r = await fetch(url, opts);
+      if (r.status === 401) { sessionStorage.clear(); location.replace('/login'); throw new Error('401'); }
+      return r.json();
+    }
+    function barra(id, v) { document.getElementById(id).style.width = Math.min(100, v || 0) + '%'; }
+
+    async function carregarStatus() {
+      try {
+        const s = await api('/api/monitor/status');
+        Object.assign(estado, s);
+        document.getElementById('hora').textContent = 'atualizado ' + s.hora;
+        const el = (id, html, c) => { const e = document.getElementById(id); e.innerHTML = html; if (c !== undefined) e.className = 'val ' + c; };
+        el('cpu', pct(s.cpu), cor(s.cpu, 70, 90)); barra('cpu-b', s.cpu);
+        document.getElementById('cpu-d').textContent = (s.cpu_temp ? Math.round(s.cpu_temp) + ' °C · ' : '') + (s.freq ? s.freq + ' MHz' : '');
+        el('ram', pct(s.ram), cor(s.ram, 75, 90)); barra('ram-b', s.ram);
+        document.getElementById('ram-d').textContent = tam(s.ram_usada) + ' de ' + tam(s.ram_total);
+        el('gpu', s.gpu == null ? '—' : pct(s.gpu), cor(s.gpu, 80, 95)); barra('gpu-b', s.gpu);
+        document.getElementById('gpu-d').textContent = s.gpu == null ? 'sem GPU NVIDIA' : (s.gpu_temp ? Math.round(s.gpu_temp) + ' °C' : '');
+        el('net', s.internet === false ? 'SEM' : s.ping != null ? Math.round(s.ping) + ' ms' : '—',
+           s.internet === false ? 'ruim' : cor(s.ping, 80, 150));
+        document.getElementById('net-d').textContent = s.wifi && s.wifi.ssid ? 'Wi-Fi ' + s.wifi.ssid + (s.wifi.sinal != null ? ' · ' + s.wifi.sinal + '%' : '') : '';
+        document.getElementById('rede').innerHTML =
+          `<div class="linha"><span>Agora</span><span class="num">↓ ${tam(s.down)}/s · ↑ ${tam(s.up)}/s</span></div>
+           <div class="linha"><span>Hoje</span><span class="num">↓ ${tam(s.hoje_down)} · ↑ ${tam(s.hoje_up)}</span></div>
+           <div class="linha"><span>Processos</span><span class="num">${esc(s.processos)}</span></div>` +
+          (s.bateria ? `<div class="linha"><span>Bateria</span><span class="num">${Math.round(s.bateria.pct)}%${s.bateria.na_tomada ? ' · na tomada' : ''}</span></div>` : '') +
+          (s.gravando ? `<div class="linha"><span>● Gravando a tela</span><span></span></div>` : '');
+        document.getElementById('discos').innerHTML = (s.discos || []).map(d =>
+          `<div class="linha"><span class="nome">${esc(d.ponto)}</span><span class="num ${cor(d.pct, 85, 92)}">${Math.round(d.pct)}% · ${tam(d.livre)} livres</span></div>`
+        ).join('') || '—';
+        document.getElementById('btn-jogo').textContent = s.modo_jogo ? '🎮 Sair do modo jogo' : '🎮 Modo jogo';
+      } catch (e) { document.getElementById('hora').textContent = 'sem conexão com o PC'; }
+    }
+
+    async function carregarProcessos() {
+      try {
+        const ordem = document.getElementById('ordem').value;
+        const r = await api('/api/monitor/processos?ordem=' + encodeURIComponent(ordem));
+        ultimos = (r.processos || []).slice(0, 25);
+        document.getElementById('procs').innerHTML = ultimos.map((p, i) =>
+          `<div class="linha"><span class="nome">${esc(p.nome)}</span>
+             <span class="num">${ordem === 'ram' ? tam(p.ram) : ordem === 'disco' ? tam(p.disco) + '/s' : ordem === 'rede' ? esc(p.conexoes) + ' conex.' : (p.cpu || 0).toLocaleString('pt-BR') + '%'}</span>
+             <button class="x" onclick="finalizar(${i})">✕</button></div>`
+        ).join('') || '—';
+      } catch (e) {}
+    }
+
+    async function acao(nome, alvo = '') {
+      try {
+        const r = await api('/api/monitor/acao', {method: 'POST', body: JSON.stringify({acao: nome, alvo})});
+        toast(r.mensagem || 'Feito.');
+        setTimeout(carregarStatus, 800);
+      } catch (e) { toast('Não consegui falar com o PC.'); }
+    }
+    function confirmar(nome, pergunta) { if (confirm(pergunta)) acao(nome); }
+    // O botão só carrega a posição na lista: o nome do processo nunca entra em
+    // código, então um nome com aspas ou HTML não quebra nem invade a página.
+    let ultimos = [];
+    function finalizar(i) {
+      const p = ultimos[i]; if (!p) return;
+      if (confirm('Finalizar ' + p.nome + '? O que não foi salvo será perdido.'))
+        acao('finalizar', String(p.pid)).then(carregarProcessos);
+    }
+    function abrirApp() {
+      const v = document.getElementById('app').value.trim();
+      if (v) { acao('abrir_app', v); document.getElementById('app').value = ''; }
+    }
+    document.getElementById('app').addEventListener('keydown', e => { if (e.key === 'Enter') abrirApp(); });
+
+    carregarStatus(); carregarProcessos();
+    setInterval(carregarStatus, 3000);
+    setInterval(carregarProcessos, 6000);
+  </script>
+</body>
+</html>

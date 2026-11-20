@@ -1,0 +1,16 @@
+{
+  "name": "J.A.R.V.I.S BR",
+  "short_name": "JARVIS",
+  "description": "O JARVIS no celular: conversa sozinho ou controla o PC.",
+  "start_url": "/movel",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#04070d",
+  "theme_color": "#04070d",
+  "lang": "pt-BR",
+  "icons": [
+    {"src": "/icone-jarvis.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"},
+    {"src": "/icone-jarvis.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable"}
+  ]
+}

@@ -1,0 +1,8 @@
+{
+    "_LEIA": "Copie este arquivo para config/api_keys.json e coloque sua chave. Nunca publique o api_keys.json.",
+    "gemini_api_key": "COLE_SUA_CHAVE_AQUI",
+    "os_system": "windows",
+    "assistant_name": "JARVIS",
+    "user_name": "",
+    "ui_color": "#00d4ff"
+}

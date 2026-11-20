@@ -1,0 +1,768 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>J.A.R.V.I.S 3.9 — HUD</title>
+<link rel="icon" href="data:,">
+<style>
+:root{--k:1;--ciano:#35d6ff;--ciano2:#0aa8ff;--claro:#e9fbff;--laranja:#ff9a1f;--verm:#ff4d4d;--verde:#3dffa8;--fundo:#02070d;
+  --fonte:"Bahnschrift","Rajdhani","Agency FB","DIN Alternate","Segoe UI",system-ui,sans-serif}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:var(--fonte);color:var(--claro);user-select:none}
+#palco{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);aspect-ratio:1672/941;overflow:hidden;background:var(--fundo)}
+#fundo{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none}
+.st{position:absolute}
+.tx{white-space:nowrap;line-height:1;text-shadow:0 0 calc(var(--k)*6px) rgba(53,214,255,.55)}
+/* textos ao vivo */
+#relogio{font-size:calc(var(--k)*31px);font-weight:600;letter-spacing:calc(var(--k)*1px)}
+#data{font-size:calc(var(--k)*15px);opacity:.9;margin-top:calc(var(--k)*2px)}
+#cpu{font-size:calc(var(--k)*21px)}
+#status{font-size:calc(var(--k)*14.5px);text-align:center;width:100%}
+.met{font-size:calc(var(--k)*17px)}
+.barra{background:#1a0e02;border-radius:calc(var(--k)*2px);overflow:hidden;box-shadow:inset 0 0 0 1px rgba(255,154,31,.25)}
+.barra i{display:block;height:100%;width:0;background:linear-gradient(90deg,#fff3dc,#ffb347 55%,#ff8a00);
+  box-shadow:0 0 calc(var(--k)*8px) #ff9a1f;transition:width .8s ease}
+.barra.alto i{background:linear-gradient(90deg,#ffe0e0,#ff6b6b 55%,#ff2a2a);box-shadow:0 0 calc(var(--k)*8px) #ff3b3b}
+#dia{font-size:calc(var(--k)*80px);font-weight:700;text-align:center;width:100%;letter-spacing:calc(var(--k)*-2px);
+  text-shadow:0 0 calc(var(--k)*14px) rgba(255,255,255,.45)}
+#selo{background:linear-gradient(90deg,#c74f00,#ff8c1a 30%,#ffa53a 70%,#c74f00);border-radius:calc(var(--k)*3px);
+  box-shadow:0 0 calc(var(--k)*12px) rgba(255,140,26,.8);display:flex;align-items:center;justify-content:center;
+  font-size:calc(var(--k)*17px);color:#fff;text-shadow:0 0 4px #7a2c00}
+.linhas div{font-size:calc(var(--k)*14px);height:calc(var(--k)*21px);display:flex;justify-content:space-between;gap:calc(var(--k)*6px);overflow:hidden}
+.linhas div span:first-child{flex:none}
+.linhas div span:last-child{overflow:hidden;text-overflow:ellipsis}
+.linhas.esq div{justify-content:flex-start}
+#procs div{font-size:calc(var(--k)*14px);height:calc(var(--k)*21.4px);display:flex;justify-content:space-between;position:relative}
+#procs div b{font-weight:400;position:relative;z-index:1;overflow:hidden;text-overflow:ellipsis;max-width:75%}
+#procs div em{font-style:normal;position:relative;z-index:1}
+#procs div s{position:absolute;left:0;top:15%;bottom:15%;background:linear-gradient(90deg,rgba(53,214,255,.0),rgba(53,214,255,.18));
+  text-decoration:none;transition:width .8s}
+#gpuNome{font-size:calc(var(--k)*14.5px)}
+#gpuPct{font-size:calc(var(--k)*26px)}
+#gpuTemp{font-size:calc(var(--k)*24px)}
+#voz{font-size:calc(var(--k)*15.5px);text-align:center;width:100%}
+#relogio2{font-size:calc(var(--k)*60px);font-weight:700;text-align:center;width:100%;letter-spacing:calc(var(--k)*2px);
+  text-shadow:0 0 calc(var(--k)*16px) rgba(255,255,255,.35)}
+#data2{font-size:calc(var(--k)*16px);text-align:center;width:100%;letter-spacing:calc(var(--k)*1px)}
+#data2:before,#data2:after{content:"";display:inline-block;width:calc(var(--k)*40px);height:1px;background:var(--ciano);
+  vertical-align:middle;margin:0 calc(var(--k)*8px);box-shadow:0 0 6px var(--ciano)}
+svg.graf{overflow:visible}
+svg.graf polyline{fill:none;stroke:var(--ciano);stroke-width:1.6;filter:drop-shadow(0 0 3px var(--ciano))}
+svg.graf polygon{fill:url(#gradGraf);stroke:none}
+.pisca{animation:pisca 1.1s steps(2) infinite}
+@keyframes pisca{50%{opacity:.25}}
+/* animações */
+.anim{pointer-events:none;mix-blend-mode:screen}
+.gira{animation:gira linear infinite;transform-origin:50% 50%;transform-box:fill-box}
+.giraR{animation:giraR linear infinite;transform-origin:50% 50%;transform-box:fill-box}
+@keyframes gira{to{transform:rotate(360deg)}}
+@keyframes giraR{to{transform:rotate(-360deg)}}
+.pulso{animation:pulso 2.4s ease-in-out infinite}
+@keyframes pulso{0%,100%{opacity:.35;transform:scale(.94)}50%{opacity:.95;transform:scale(1.04)}}
+#varredura{position:absolute;left:0;right:0;height:14%;top:-15%;pointer-events:none;mix-blend-mode:screen;
+  background:linear-gradient(180deg,transparent,rgba(53,214,255,.05) 70%,rgba(120,230,255,.18) 98%,transparent);animation:varre 7s linear infinite}
+@keyframes varre{to{top:110%}}
+#grao{position:absolute;inset:0;pointer-events:none;opacity:.07;mix-blend-mode:screen;
+  background:repeating-linear-gradient(0deg,rgba(255,255,255,.5) 0 1px,transparent 1px 3px)}
+#particulas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;mix-blend-mode:screen}
+.olho{border-radius:50%;background:radial-gradient(closest-side,rgba(200,250,255,.95),rgba(53,214,255,.55) 45%,transparent 75%);
+  filter:blur(calc(var(--k)*2px));animation:olho 4.2s ease-in-out infinite;mix-blend-mode:screen;pointer-events:none}
+@keyframes olho{0%,100%{opacity:.55}45%{opacity:1}48%{opacity:.15}52%{opacity:1}}
+.brilho{border-radius:50%;background:radial-gradient(closest-side,rgba(160,240,255,.85),rgba(53,214,255,.35) 40%,transparent 72%);
+  mix-blend-mode:screen;pointer-events:none}
+.listras{mix-blend-mode:screen;pointer-events:none;opacity:.8;
+  background:linear-gradient(180deg,transparent 0,rgba(255,200,90,.65) 8%,transparent 16%);background-size:100% 260%;animation:listra 2.6s linear infinite}
+@keyframes listra{from{background-position:0 120%}to{background-position:0 -120%}}
+.dados i{display:inline-block;width:calc(var(--k)*7px);margin-right:calc(var(--k)*3px);background:var(--ciano);box-shadow:0 0 6px var(--ciano);vertical-align:bottom;transition:height .25s}
+/* botões clicáveis */
+.alvo{position:absolute;cursor:pointer;background:transparent;border:0;padding:0;outline:none}
+.menu{clip-path:polygon(0 0,88% 0,100% 30%,100% 100%,6% 100%,0 80%);transition:background .2s,box-shadow .2s}
+.menu:hover,.menu:focus-visible{background:linear-gradient(90deg,rgba(53,214,255,.28),rgba(53,214,255,.06));box-shadow:inset 0 0 calc(var(--k)*14px) rgba(53,214,255,.6)}
+.menu.ativo{background:linear-gradient(90deg,rgba(53,214,255,.4),rgba(53,214,255,.1))}
+.redondo{border-radius:50%;transition:box-shadow .25s,background .25s}
+.redondo:hover,.redondo:focus-visible{box-shadow:0 0 calc(var(--k)*30px) rgba(53,214,255,.55),inset 0 0 calc(var(--k)*30px) rgba(53,214,255,.35)}
+.caixa{border-radius:calc(var(--k)*4px);transition:box-shadow .25s,background .25s}
+.caixa:hover,.caixa:focus-visible{background:rgba(53,214,255,.06);box-shadow:inset 0 0 0 1px rgba(53,214,255,.55),0 0 calc(var(--k)*16px) rgba(53,214,255,.3)}
+.dica{position:absolute;pointer-events:none;font-size:calc(var(--k)*12px);padding:calc(var(--k)*4px) calc(var(--k)*8px);
+  background:rgba(2,16,26,.92);border:1px solid rgba(53,214,255,.6);color:var(--claro);border-radius:calc(var(--k)*3px);
+  opacity:0;transition:opacity .15s;white-space:nowrap;z-index:40;letter-spacing:.5px}
+.onda{position:absolute;border:2px solid var(--ciano);border-radius:50%;pointer-events:none;transform:translate(-50%,-50%);
+  animation:onda .7s ease-out forwards;mix-blend-mode:screen;z-index:45}
+@keyframes onda{from{width:0;height:0;opacity:1}to{width:calc(var(--k)*120px);height:calc(var(--k)*120px);opacity:0}}
+/* painel holográfico */
+#veu{position:absolute;inset:0;background:rgba(0,6,12,.45);opacity:0;pointer-events:none;transition:opacity .25s;z-index:30;backdrop-filter:blur(1.5px)}
+#veu.on{opacity:1;pointer-events:auto}
+#painel{position:absolute;left:24%;top:13%;width:52%;height:74%;z-index:31;display:flex;flex-direction:column;
+  background:linear-gradient(160deg,rgba(4,26,40,.94),rgba(2,12,22,.96));border:1px solid rgba(53,214,255,.7);
+  box-shadow:0 0 calc(var(--k)*40px) rgba(53,214,255,.35),inset 0 0 calc(var(--k)*40px) rgba(53,214,255,.12);
+  clip-path:polygon(0 calc(var(--k)*22px),calc(var(--k)*22px) 0,100% 0,100% calc(100% - calc(var(--k)*22px)),calc(100% - calc(var(--k)*22px)) 100%,0 100%);
+  transform:scale(.6) rotateX(30deg);opacity:0;pointer-events:none;transition:transform .35s cubic-bezier(.2,1.4,.4,1),opacity .25s}
+#painel.on{transform:none;opacity:1;pointer-events:auto}
+#painel header{display:flex;align-items:center;gap:calc(var(--k)*12px);padding:calc(var(--k)*14px) calc(var(--k)*22px);
+  border-bottom:1px solid rgba(53,214,255,.35);background:linear-gradient(90deg,rgba(53,214,255,.18),transparent)}
+#painel h2{margin:0;font-size:calc(var(--k)*24px);letter-spacing:calc(var(--k)*3px);font-weight:600;text-shadow:0 0 10px var(--ciano)}
+#painel h2 small{font-size:.55em;opacity:.7;letter-spacing:1px;margin-left:calc(var(--k)*10px)}
+#fechar{margin-left:auto;font:inherit;font-size:calc(var(--k)*20px);color:var(--claro);background:transparent;border:1px solid rgba(53,214,255,.5);
+  width:calc(var(--k)*38px);height:calc(var(--k)*38px);cursor:pointer;border-radius:50%}
+#fechar:hover{background:rgba(255,77,77,.25);border-color:var(--verm)}
+#corpo{flex:1;overflow:auto;padding:calc(var(--k)*18px) calc(var(--k)*24px);font-size:calc(var(--k)*16px);user-select:text}
+#corpo::-webkit-scrollbar{width:8px}#corpo::-webkit-scrollbar-thumb{background:rgba(53,214,255,.4);border-radius:4px}
+.abas{display:flex;gap:calc(var(--k)*8px);margin-bottom:calc(var(--k)*14px)}
+.btn{font:inherit;font-size:calc(var(--k)*15px);color:var(--claro);background:rgba(53,214,255,.08);border:1px solid rgba(53,214,255,.55);
+  padding:calc(var(--k)*9px) calc(var(--k)*16px);cursor:pointer;letter-spacing:1px;transition:all .15s;
+  clip-path:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,10px 100%,0 calc(100% - 10px))}
+.btn:hover{background:rgba(53,214,255,.28);box-shadow:0 0 16px rgba(53,214,255,.5)}
+.btn.on{background:rgba(53,214,255,.4)}
+.btn.grande{font-size:calc(var(--k)*30px);padding:calc(var(--k)*12px) calc(var(--k)*26px)}
+.grade{display:grid;grid-template-columns:repeat(auto-fill,minmax(calc(var(--k)*230px),1fr));gap:calc(var(--k)*10px)}
+.cartao{border:1px solid rgba(53,214,255,.3);background:rgba(53,214,255,.05);padding:calc(var(--k)*10px) calc(var(--k)*14px)}
+.cartao small{display:block;opacity:.65;font-size:calc(var(--k)*12px);letter-spacing:1.5px;text-transform:uppercase}
+.cartao b{display:block;font-size:calc(var(--k)*19px);font-weight:500;margin-top:calc(var(--k)*3px);word-break:break-word}
+.fila{display:flex;flex-wrap:wrap;gap:calc(var(--k)*10px);margin:calc(var(--k)*12px) 0}
+h3{font-size:calc(var(--k)*14px);letter-spacing:3px;opacity:.75;margin:calc(var(--k)*18px) 0 calc(var(--k)*8px);font-weight:500;text-transform:uppercase}
+input[type=text]{font:inherit;font-size:calc(var(--k)*18px);color:var(--claro);background:rgba(0,0,0,.4);border:1px solid rgba(53,214,255,.55);
+  padding:calc(var(--k)*10px) calc(var(--k)*14px);flex:1;min-width:0;outline:none}
+input[type=text]:focus{box-shadow:0 0 14px rgba(53,214,255,.5)}
+input[type=range]{width:100%;accent-color:var(--ciano)}
+.msg{margin-top:calc(var(--k)*10px);opacity:.85;min-height:1.3em}
+.ok{color:var(--verde)}.ruim{color:var(--verm)}.meio{color:var(--laranja)}
+.mic{width:calc(var(--k)*150px);height:calc(var(--k)*150px);border-radius:50%;border:2px solid var(--ciano);background:radial-gradient(circle,rgba(53,214,255,.35),rgba(2,12,22,.9) 70%);
+  color:var(--claro);font:inherit;font-size:calc(var(--k)*16px);letter-spacing:2px;cursor:pointer;display:block;margin:calc(var(--k)*6px) auto calc(var(--k)*14px);
+  box-shadow:0 0 30px rgba(53,214,255,.4);transition:transform .15s}
+.mic:hover{transform:scale(1.05)}.mic.ouvindo{animation:micp 1s ease-in-out infinite;border-color:var(--verde)}
+@keyframes micp{50%{box-shadow:0 0 60px rgba(61,255,168,.8)}}
+.diag div{display:flex;justify-content:space-between;padding:calc(var(--k)*7px) 0;border-bottom:1px dashed rgba(53,214,255,.2);opacity:0;transform:translateX(-12px);transition:all .3s}
+.diag div.v{opacity:1;transform:none}
+table{width:100%;border-collapse:collapse;font-size:calc(var(--k)*15px)}td,th{padding:calc(var(--k)*6px);text-align:left;border-bottom:1px solid rgba(53,214,255,.15)}
+th{opacity:.6;font-weight:400;font-size:.85em;letter-spacing:1px}
+.chave{display:flex;align-items:center;justify-content:space-between;padding:calc(var(--k)*9px) 0;border-bottom:1px solid rgba(53,214,255,.12)}
+/* inicialização */
+#boot{position:absolute;inset:0;z-index:60;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:calc(var(--k)*18px);transition:opacity .8s}
+#boot.sai{opacity:0;pointer-events:none}
+#boot .anel{width:calc(var(--k)*160px);height:calc(var(--k)*160px);border-radius:50%;border:3px solid transparent;border-top-color:var(--ciano);border-right-color:var(--ciano2);
+  animation:gira 1s linear infinite;box-shadow:0 0 40px rgba(53,214,255,.4)}
+#boot h1{margin:0;font-weight:600;letter-spacing:calc(var(--k)*10px);font-size:calc(var(--k)*40px);text-shadow:0 0 18px var(--ciano)}
+#boot p{margin:0;font-size:calc(var(--k)*15px);letter-spacing:3px;opacity:.8;min-height:1.2em}
+#boot .prog{width:calc(var(--k)*360px);height:3px;background:rgba(53,214,255,.15)}#boot .prog i{display:block;height:100%;width:0;background:var(--ciano);box-shadow:0 0 10px var(--ciano);transition:width .3s}
+.sem-anim .gira,.sem-anim .giraR,.sem-anim .pulso,.sem-anim .olho,.sem-anim .listras,.sem-anim #varredura{animation:none!important}
+.sem-varre #varredura,.sem-varre #grao{display:none}
+/* tema F.R.I.D.A.Y (3.9.2): só a imagem dela ao fundo, painéis em rosa e um menu simples */
+.friday .st,.friday .alvo,.friday #varredura,.friday #grao,.friday #selo,.friday #dados{display:none!important}
+.friday #fundo{object-fit:contain;opacity:.42;filter:saturate(1.1)}
+.friday #painel,.friday .toast,.friday #menuF{filter:hue-rotate(150deg)}
+#menuF{display:none;position:absolute;left:2%;top:13%;z-index:32;flex-direction:column;gap:calc(var(--k)*10px);width:18%}
+.friday #menuF{display:flex}
+#menuF h1{margin:0 0 calc(var(--k)*10px);font-size:calc(var(--k)*34px);letter-spacing:calc(var(--k)*4px);color:#bfe9ff;text-shadow:0 0 14px #35d6ff}
+.toast{position:absolute;left:50%;bottom:16%;transform:translateX(-50%);z-index:50;padding:calc(var(--k)*10px) calc(var(--k)*20px);background:rgba(2,16,26,.95);
+  border:1px solid var(--ciano);font-size:calc(var(--k)*16px);letter-spacing:1px;box-shadow:0 0 20px rgba(53,214,255,.4);transition:opacity .3s;pointer-events:none}
+</style>
+</head>
+<body>
+<div id="palco">
+  <img id="fundo" src="/hud.jpg" alt="">
+  <canvas id="particulas"></canvas>
+
+  <!-- ===== animações por cima da arte ===== -->
+  <svg class="st anim" data-b="250,0,0,0" width="0" height="0" style="position:absolute">
+    <defs>
+      <linearGradient id="gradGraf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#35d6ff" stop-opacity=".45"/><stop offset="1" stop-color="#35d6ff" stop-opacity="0"/></linearGradient>
+      <radialGradient id="gradVarre"><stop offset="0" stop-color="#7ff0ff" stop-opacity=".0"/><stop offset="1" stop-color="#7ff0ff" stop-opacity=".55"/></radialGradient>
+    </defs>
+  </svg>
+  <!-- logo -->
+  <svg class="st anim" data-b="4,9,112,112" viewBox="0 0 100 100">
+    <circle class="gira" style="animation-duration:9s" cx="50" cy="50" r="46" fill="none" stroke="#ffb347" stroke-width="1.6" stroke-dasharray="10 6 2 6" opacity=".9"/>
+    <circle class="pulso" cx="50" cy="50" r="22" fill="#ffae42" opacity=".35" style="transform-origin:50% 50%;transform-box:fill-box;filter:blur(4px)"/>
+  </svg>
+  <!-- CPU: anel de uso em volta do ícone -->
+  <svg class="st anim" data-b="452,20,56,56" viewBox="0 0 100 100">
+    <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(53,214,255,.18)" stroke-width="7"/>
+    <circle id="arcoCpu" cx="50" cy="50" r="42" fill="none" stroke="#35d6ff" stroke-width="7" stroke-linecap="round"
+      stroke-dasharray="0 264" transform="rotate(-90 50 50)" style="transition:stroke-dasharray .8s;filter:drop-shadow(0 0 4px #35d6ff)"/>
+    <circle class="gira" style="animation-duration:3s" cx="50" cy="50" r="30" fill="none" stroke="#9ef0ff" stroke-width="2" stroke-dasharray="14 80"/>
+  </svg>
+  <!-- relógio analógico -->
+  <svg class="st anim" data-b="282,24,46,46" viewBox="0 0 100 100">
+    <line id="ponteiroS" x1="50" y1="50" x2="50" y2="16" stroke="#35d6ff" stroke-width="3" stroke-linecap="round"/>
+  </svg>
+  <!-- olhos -->
+  <div class="st olho" data-b="732,244,90,36"></div>
+  <div class="st olho" data-b="857,244,90,36" style="animation-delay:.05s"></div>
+  <!-- radar -->
+  <svg class="st anim" data-b="357,257,186,186" viewBox="0 0 100 100">
+    <g class="gira" style="animation-duration:3.2s">
+      <path d="M50 50 L50 3 A47 47 0 0 1 90.7 26.5 Z" fill="url(#gradVarre)"/>
+      <line x1="50" y1="50" x2="50" y2="3" stroke="#bff6ff" stroke-width="1.2"/>
+    </g>
+    <circle class="pisca" cx="68" cy="34" r="2.2" fill="#3dffa8"/><circle class="pisca" style="animation-delay:.5s" cx="30" cy="62" r="1.8" fill="#3dffa8"/>
+    <circle class="giraR" style="animation-duration:14s" cx="50" cy="50" r="47" fill="none" stroke="#35d6ff" stroke-width=".8" stroke-dasharray="3 5"/>
+  </svg>
+  <!-- círculo JARVIS -->
+  <svg class="st anim" id="svgJarvis" data-b="140,490,356,356" viewBox="0 0 200 200">
+    <circle class="gira" style="animation-duration:22s" cx="100" cy="100" r="97" fill="none" stroke="#35d6ff" stroke-width="1" stroke-dasharray="1 4" opacity=".9"/>
+    <circle class="giraR" style="animation-duration:12s" cx="100" cy="100" r="90" fill="none" stroke="#5ee2ff" stroke-width="2.4" stroke-dasharray="40 18 6 18" opacity=".75"/>
+    <circle class="gira" style="animation-duration:6s" cx="100" cy="100" r="82" fill="none" stroke="#bdf7ff" stroke-width="1.2" stroke-dasharray="22 120" opacity=".9"/>
+    <g id="eq"></g>
+    <circle id="anelFala" cx="100" cy="100" r="58" fill="none" stroke="#35d6ff" stroke-width="2" opacity="0"/>
+  </svg>
+  <!-- reator do peito -->
+  <div class="st brilho pulso" data-b="742,620,200,200" style="transform-origin:50% 50%"></div>
+  <svg class="st anim" data-b="752,630,180,180" viewBox="0 0 100 100">
+    <circle class="gira" style="animation-duration:8s" cx="50" cy="50" r="47" fill="none" stroke="#9ef0ff" stroke-width="1.4" stroke-dasharray="6 4"/>
+    <circle class="giraR" style="animation-duration:4s" cx="50" cy="50" r="38" fill="none" stroke="#35d6ff" stroke-width="2.5" stroke-dasharray="30 30"/>
+  </svg>
+  <!-- globo: órbita com satélite -->
+  <svg class="st anim" data-b="1250,330,375,260" viewBox="0 0 375 260">
+    <ellipse cx="187" cy="102" rx="176" ry="38" fill="none" stroke="#35d6ff" stroke-width="1" stroke-dasharray="4 6" opacity=".55"/>
+    <circle r="4" fill="#dffbff" style="filter:drop-shadow(0 0 6px #35d6ff)">
+      <animateMotion dur="7s" repeatCount="indefinite" path="M11,102 a176,38 0 1,0 352,0 a176,38 0 1,0 -352,0"/>
+    </circle>
+    <circle r="2.6" fill="#ffb347"><animateMotion dur="11s" repeatCount="indefinite" path="M363,102 a176,38 0 1,1 -352,0 a176,38 0 1,1 352,0"/></circle>
+  </svg>
+  <div class="st brilho pulso" data-b="1325,352,224,224" style="opacity:.4;animation-duration:4s"></div>
+  <!-- reator do canto -->
+  <svg class="st anim" data-b="1428,700,188,188" viewBox="0 0 100 100">
+    <circle class="gira" style="animation-duration:5s" cx="50" cy="50" r="47" fill="none" stroke="#35d6ff" stroke-width="2" stroke-dasharray="12 6"/>
+    <circle class="giraR" style="animation-duration:9s" cx="50" cy="50" r="41" fill="none" stroke="#bff6ff" stroke-width="1" stroke-dasharray="2 3"/>
+  </svg>
+  <div class="st brilho pulso" data-b="1462,735,120,120" style="animation-duration:1.8s"></div>
+  <!-- barras laranjas laterais -->
+  <div class="st listras" data-b="1618,340,36,365"></div>
+  <div class="st listras" data-b="94,598,34,166" style="animation-delay:1.1s"></div>
+  <!-- fluxo de dados no rodapé -->
+  <div class="st dados anim" id="dados" data-b="790,876,90,32" style="display:flex;align-items:flex-end"></div>
+  <div id="varredura"></div><div id="grao"></div>
+
+  <!-- ===== textos ao vivo ===== -->
+  <div class="st tx" data-b="342,30,90,56"><div id="relogio">--:--</div><div id="data">---</div></div>
+  <div class="st tx" id="cpu" data-b="522,56,90,26">--%</div>
+  <div class="st tx" data-b="690,57,292,22"><div id="status">Sistema Online • Pronto para Assistir</div></div>
+  <div class="st tx met" id="ram" data-b="1075,50,90,22">--%</div>
+  <div class="st tx met" id="disco" data-b="1209,50,90,22">--%</div>
+  <div class="st tx met" id="rede" data-b="1343,50,110,22">--</div>
+  <div class="st barra" id="bRam" data-b="1076,72,104,7"><i></i></div>
+  <div class="st barra" id="bDisco" data-b="1210,72,105,7"><i></i></div>
+  <div class="st barra" id="bRede" data-b="1344,72,105,7"><i></i></div>
+  <div class="st tx" data-b="1527,18,92,90"><div id="dia">--</div></div>
+  <div class="st" id="selo" data-b="1541,118,96,20">--°C</div>
+  <div class="st tx linhas esq" id="linSis" data-b="262,158,190,64"><div>SO: …</div><div>Build: …</div><div>Arquitetura: …</div></div>
+  <div class="st tx linhas" id="linRede" data-b="471,158,132,64"><div><span>Download:</span><span>--</span></div><div><span>Upload:</span><span>--</span></div><div><span>Ping:</span><span>--</span></div></div>
+  <svg class="st graf" id="gRede" data-b="470,224,130,15" viewBox="0 0 130 15" preserveAspectRatio="none"></svg>
+  <div class="st tx" id="procs" data-b="1016,154,220,172"></div>
+  <div class="st tx" id="gpuNome" data-b="1325,155,170,20">GPU</div>
+  <div class="st tx" id="gpuPct" data-b="1325,180,80,30">--%</div>
+  <svg class="st graf" id="gGpu" data-b="1455,186,132,42" viewBox="0 0 132 42" preserveAspectRatio="none"></svg>
+  <div class="st tx" id="gpuTemp" data-b="1325,274,90,28">--°C</div>
+  <svg class="st graf" id="gTemp" data-b="1405,284,182,32" viewBox="0 0 182 32" preserveAspectRatio="none"></svg>
+  <div class="st tx" data-b="590,814,505,22"><div id="voz">Comando por voz: …</div></div>
+  <div class="st tx" data-b="452,846,208,86"><div id="relogio2">--:--</div><div id="data2">---</div></div>
+
+  <!-- ===== áreas clicáveis ===== -->
+  <button class="alvo menu" data-b="94,124,126,42" data-abre="sistema" data-dica="Sobre o sistema"></button>
+  <button class="alvo menu" data-b="94,180,126,42" data-abre="internet" data-dica="Internet e rede"></button>
+  <button class="alvo menu" data-b="94,236,126,42" data-abre="arquivos" data-dica="Abrir pastas"></button>
+  <button class="alvo menu" data-b="94,292,126,42" data-abre="musica" data-dica="Controles de música"></button>
+  <button class="alvo menu" data-b="94,348,126,42" data-abre="videos" data-dica="Vídeos"></button>
+  <button class="alvo menu" data-b="94,404,126,42" data-abre="jogos" data-dica="Jogos"></button>
+  <button class="alvo menu" data-b="94,460,126,42" data-abre="config" data-dica="Configurações do HUD"></button>
+  <button class="alvo redondo" data-b="8,13,104,104" data-abre="jarvis" data-dica="Sobre o J.A.R.V.I.S"></button>
+  <button class="alvo redondo" data-b="185,535,266,266" data-abre="comando" data-dica="Falar com o JARVIS  [espaço]"></button>
+  <button class="alvo redondo" data-b="760,638,164,164" data-abre="diagnostico" data-dica="Diagnóstico do sistema"></button>
+  <button class="alvo redondo" data-b="1330,356,214,214" data-abre="internet" data-dica="Rede e internet"></button>
+  <button class="alvo redondo" data-b="1440,712,164,164" data-abre="config" data-dica="Configurações"></button>
+  <button class="alvo redondo" data-b="365,265,170,170" data-abre="internet" data-dica="Radar de rede"></button>
+  <button class="alvo caixa" data-b="996,118,262,240" data-abre="processos" data-dica="Processos"></button>
+  <button class="alvo caixa" data-b="1316,118,280,200" data-abre="gpu" data-dica="Placa de vídeo"></button>
+  <button class="alvo caixa" data-b="250,118,360,128" data-abre="sistema" data-dica="Sistema e rede"></button>
+  <button class="alvo caixa" data-b="1062,22,400,66" data-abre="discos" data-dica="Memória, discos e rede"></button>
+  <button class="alvo caixa" data-b="1500,10,160,140" data-abre="diagnostico" data-dica="Temperatura e diagnóstico"></button>
+  <button class="alvo caixa" data-b="440,840,230,96" data-tela="1" data-dica="Tela cheia  [F]"></button>
+
+  <div class="dica" id="dica"></div>
+  <div id="veu"></div>
+  <section id="painel" role="dialog" aria-modal="true">
+    <header><h2 id="titulo">—</h2><button id="fechar" title="Fechar (Esc)">✕</button></header>
+    <div id="corpo"></div>
+  </section>
+  <nav id="menuF"><h1>F.R.I.D.A.Y</h1></nav>
+  <div id="boot"><div class="anel"></div><h1>J.A.R.V.I.S</h1><p id="bootTxt">INICIALIZANDO</p><div class="prog"><i id="bootProg"></i></div></div>
+</div>
+
+<script>
+"use strict";
+const TOKEN = "__TOKEN__", W = 1672, H = 941;
+const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
+const palco = $("#palco");
+const TEMA = new URLSearchParams(location.search).get("tema") === "friday" ? "friday" : "";
+if (TEMA) {
+  palco.classList.add("friday"); $("#fundo").src = "/friday.jpg"; document.title = "F.R.I.D.A.Y";
+  const nomes = [["sistema", "SISTEMA"], ["internet", "INTERNET"], ["arquivos", "ARQUIVOS"], ["musica", "MÚSICA"],
+    ["videos", "VÍDEOS"], ["jogos", "JOGOS"], ["processos", "PROCESSOS"], ["diagnostico", "DIAGNÓSTICO"], ["config", "CONFIG"]];
+  for (const [n, r] of nomes) $("#menuF").insertAdjacentHTML("beforeend", `<button class="btn" onclick="abrir('${n}')">${r}</button>`);
+}
+let E = null, S = null;   // estado do momento, sistema fixo
+
+// ── ajustes guardados (só conveniência; pode falhar sem problema) ─────────────
+const AJ = Object.assign({som: true, anim: true, varre: true, part: true, boot: true, cor: 0}, ler());
+function ler() { try { return JSON.parse(localStorage.getItem("hud39") || "{}"); } catch (e) { return {}; } }
+function salvar() { try { localStorage.setItem("hud39", JSON.stringify(AJ)); } catch (e) {} aplicarAjustes(); }
+function aplicarAjustes() {
+  palco.classList.toggle("sem-anim", !AJ.anim);
+  palco.classList.toggle("sem-varre", !AJ.varre);
+  palco.style.filter = AJ.cor ? `hue-rotate(${AJ.cor}deg)` : "";
+}
+
+// ── posicionamento: tudo em % da arte 1672×941 ───────────────────────────────
+for (const el of $$("[data-b]")) {
+  const [x, y, w, h] = el.dataset.b.split(",").map(Number);
+  Object.assign(el.style, {left: x / W * 100 + "%", top: y / H * 100 + "%", width: w / W * 100 + "%", height: h / H * 100 + "%"});
+}
+function encaixar() {
+  const w = Math.min(innerWidth, innerHeight * W / H);
+  palco.style.width = w + "px"; palco.style.height = w * H / W + "px";
+  document.documentElement.style.setProperty("--k", w / W);
+  const c = $("#particulas"); c.width = w; c.height = w * H / W;
+}
+addEventListener("resize", encaixar); encaixar(); aplicarAjustes();
+
+// ── sons sintetizados (sem arquivos) ─────────────────────────────────────────
+let ac = null;
+function som(tipo) {
+  if (!AJ.som) return;
+  try {
+    ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+    const o = ac.createOscillator(), g = ac.createGain(), t = ac.currentTime;
+    const m = {passa: [1800, .025, .03], clique: [880, .08, .09], abre: [440, .22, .12], fecha: [660, .15, .1], ok: [1320, .12, .1], erro: [180, .25, .12]}[tipo] || [1000, .05, .05];
+    o.type = tipo === "erro" ? "sawtooth" : "sine";
+    o.frequency.setValueAtTime(m[0], t);
+    if (tipo === "abre") o.frequency.exponentialRampToValueAtTime(1400, t + m[1]);
+    if (tipo === "fecha") o.frequency.exponentialRampToValueAtTime(300, t + m[1]);
+    g.gain.setValueAtTime(m[2], t); g.gain.exponentialRampToValueAtTime(.0001, t + m[1]);
+    o.connect(g).connect(ac.destination); o.start(t); o.stop(t + m[1] + .02);
+  } catch (e) {}
+}
+
+// ── formatação ───────────────────────────────────────────────────────────────
+const vel = b => b == null ? "--" : b >= 1048576 ? (b / 1048576).toFixed(1) + " MB/s" : (b / 1024).toFixed(1) + " KB/s";
+const tam = b => { if (!b) return "--"; const u = ["B", "KB", "MB", "GB", "TB"]; let i = 0; while (b >= 1024 && i < 4) { b /= 1024; i++; } return b.toFixed(i > 2 ? 1 : 0) + " " + u[i]; };
+const dur = s => { s = Math.floor(s || 0); const d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60); return (d ? d + "d " : "") + h + "h " + String(m).padStart(2, "0") + "min"; };
+const esc = t => String(t ?? "").replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+const pct = v => v == null ? "--" : Math.round(v) + "%";
+const DIAS = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"];
+
+// ── relógio ──────────────────────────────────────────────────────────────────
+function relogio() {
+  const d = new Date(), hm = d.toTimeString().slice(0, 5);
+  const dt = `${DIAS[d.getDay()]}, ${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`;
+  $("#relogio").textContent = $("#relogio2").textContent = hm;
+  $("#data").textContent = $("#data2").textContent = dt;
+  $("#dia").textContent = d.getDate();
+  $("#ponteiroS").setAttribute("transform", `rotate(${d.getSeconds() * 6} 50 50)`);
+}
+setInterval(relogio, 1000); relogio();
+
+// ── gráficos ─────────────────────────────────────────────────────────────────
+function grafico(svg, serie, max) {
+  const vb = svg.viewBox.baseVal, w = vb.width, h = vb.height;
+  if (!serie || serie.length < 2) { svg.innerHTML = ""; return; }
+  const m = max || Math.max(1, ...serie) * 1.15, n = serie.length;
+  const pts = serie.map((v, i) => `${(i / (n - 1) * w).toFixed(1)},${(h - Math.min(1, v / m) * (h - 2) - 1).toFixed(1)}`).join(" ");
+  svg.innerHTML = `<polygon points="0,${h} ${pts} ${w},${h}"/><polyline points="${pts}"/>`;
+}
+
+// ── dados ao vivo ────────────────────────────────────────────────────────────
+const ESTADO_TXT = {OUVINDO: "Ouvindo…", FALANDO: "Falando…", PENSANDO: "Pensando…", PROCESSANDO: "Processando…", DORMINDO: "Em repouso", MUTADO: "Microfone mudo", INICIANDO: "Iniciando…"};
+function barra(id, v) { const b = $(id); b.firstElementChild.style.width = Math.max(0, Math.min(100, v || 0)) + "%"; b.classList.toggle("alto", (v || 0) >= 85); }
+function desenhar() {
+  if (!E) return;
+  $("#cpu").textContent = pct(E.cpu);
+  $("#arcoCpu").setAttribute("stroke-dasharray", `${(E.cpu || 0) / 100 * 264} 264`);
+  $("#ram").textContent = pct(E.ram.pct); barra("#bRam", E.ram.pct);
+  $("#disco").textContent = pct(E.disco.pct); barra("#bDisco", E.disco.pct);
+  const tot = E.rede.down + E.rede.up;
+  $("#rede").textContent = vel(tot); barra("#bRede", Math.min(100, Math.log10(1 + tot / 1024) / 5 * 100));
+  const t = E.cpu_temp ?? (E.gpu && E.gpu.temp);
+  $("#selo").textContent = t == null ? "N/D" : Math.round(t) + "°C";
+  const ln = $$("#linRede div span:last-child");
+  ln[0].textContent = vel(E.rede.down); ln[1].textContent = vel(E.rede.up);
+  ln[2].textContent = E.ping == null ? (E.internet === false ? "offline" : "--") : Math.round(E.ping) + " ms";
+  grafico($("#gRede"), (E.hist.down || []).slice(-40));
+  const maxc = Math.max(10, ...E.processos.map(p => p.cpu));
+  $("#procs").innerHTML = E.processos.map(p => `<div><s style="width:${p.cpu / maxc * 100}%"></s><b>${esc(p.nome)}</b><em>${p.cpu.toFixed(1)}%</em></div>`).join("");
+  const g = E.gpu;
+  $("#gpuNome").textContent = g ? (g.nome || "GPU") : "GPU não informada";
+  $("#gpuPct").textContent = g && g.uso != null ? pct(g.uso) : "--";
+  $("#gpuTemp").textContent = g && g.temp != null ? Math.round(g.temp) + "°C" : "--";
+  grafico($("#gGpu"), (E.hist.gpu && E.hist.gpu.length > 1 ? E.hist.gpu : E.hist.cpu || []).slice(-45), 100);
+  grafico($("#gTemp"), (E.hist.temp && E.hist.temp.length > 1 ? E.hist.temp : E.hist.ram || []).slice(-60), 100);
+  const j = E.jarvis || {};
+  if (j.conectado) {
+    $("#voz").textContent = `Comando por voz: ${j.mudo ? "Mudo" : "Ativado"} • ${ESTADO_TXT[j.estado] || "pronto para iniciar tarefas"}`;
+    $("#status").textContent = j.estado && ESTADO_TXT[j.estado] ? `Sistema Online • ${ESTADO_TXT[j.estado]}` : "Sistema Online • Pronto para Assistir";
+  } else {
+    $("#voz").textContent = "Modo painel • abra o JARVIS para comandos por voz";
+    $("#status").textContent = "Sistema Online • Monitorando";
+  }
+  falando = !!j.falando || j.estado === "FALANDO";
+  ouvindoJ = j.estado === "OUVINDO";
+  if (painelAtual && ATUALIZA[painelAtual]) ATUALIZA[painelAtual]();
+}
+async function buscar() {
+  try { E = await (await fetch("/api/estado", {cache: "no-store"})).json(); desenhar(); }
+  catch (e) { $("#status").textContent = "Sem conexão com o JARVIS"; }
+}
+async function buscarSobre() {
+  try { S = await (await fetch("/api/sobre")).json(); } catch (e) { return; }
+  const l = $$("#linSis div");
+  l[0].textContent = "SO: " + S.so; l[1].textContent = "Build: " + S.build; l[2].textContent = "Arquitetura: " + S.arquitetura;
+}
+
+// ── equalizador do círculo JARVIS (fala do JARVIS ou o seu microfone) ────────
+const eq = $("#eq"), NB = 48;
+for (let i = 0; i < NB; i++) {
+  const a = i / NB * Math.PI * 2, x = 100 + Math.cos(a) * 64, y = 100 + Math.sin(a) * 64;
+  eq.insertAdjacentHTML("beforeend", `<line x1="${x}" y1="${y}" x2="${x}" y2="${y}" stroke="#7fe9ff" stroke-width="2.2" stroke-linecap="round" data-a="${a}"/>`);
+}
+const barrasEq = [...eq.children];
+let falando = false, ouvindoJ = false, nivelMic = 0, analisador = null;
+function quadro(ts) {
+  const t = ts / 1000;
+  let dados = null;
+  if (analisador) { dados = new Uint8Array(analisador.frequencyBinCount); analisador.getByteFrequencyData(dados); }
+  barrasEq.forEach((l, i) => {
+    let v;
+    if (dados) v = dados[2 + (i % 24) * 2] / 255;
+    else if (falando) v = .35 + .65 * Math.abs(Math.sin(t * 9 + i * .7) * Math.sin(t * 3.3 + i * .23));
+    else if (ouvindoJ) v = .12 + .1 * Math.sin(t * 4 + i * .5);
+    else v = .05 + .04 * Math.sin(t * 2 + i * .4);
+    const a = +l.dataset.a, r1 = 64, r2 = 64 + v * 22;
+    l.setAttribute("x1", 100 + Math.cos(a) * r1); l.setAttribute("y1", 100 + Math.sin(a) * r1);
+    l.setAttribute("x2", 100 + Math.cos(a) * r2); l.setAttribute("y2", 100 + Math.sin(a) * r2);
+  });
+  const af = $("#anelFala"); af.setAttribute("opacity", falando || dados ? .4 + .4 * Math.sin(t * 8) : 0);
+  // fluxo de dados
+  if (Math.floor(t * 8) !== quadro.u) { quadro.u = Math.floor(t * 8); for (const i of $("#dados").children) i.style.height = (15 + Math.random() * 85) + "%"; }
+  particulas(t);
+  requestAnimationFrame(quadro);
+}
+for (let i = 0; i < 9; i++) $("#dados").insertAdjacentHTML("beforeend", "<i></i>");
+
+// ── partículas ───────────────────────────────────────────────────────────────
+const pc = $("#particulas"), px = pc.getContext("2d");
+const P = Array.from({length: 70}, () => ({x: Math.random(), y: Math.random(), v: .00004 + Math.random() * .00012, r: .4 + Math.random() * 1.4, f: Math.random() * 6}));
+function particulas(t) {
+  px.clearRect(0, 0, pc.width, pc.height);
+  if (!AJ.part || !AJ.anim) return;
+  for (const p of P) {
+    p.y -= p.v * 16; if (p.y < 0) { p.y = 1; p.x = Math.random(); }
+    px.globalAlpha = .25 + .35 * Math.sin(t * 2 + p.f) ** 2;
+    px.fillStyle = "#7fe9ff"; px.beginPath(); px.arc(p.x * pc.width, p.y * pc.height, p.r * pc.width / 1672, 0, 7); px.fill();
+  }
+}
+
+// ── dicas, ondas e cliques ───────────────────────────────────────────────────
+const dica = $("#dica");
+for (const b of $$(".alvo")) {
+  b.addEventListener("mouseenter", () => { som("passa"); dica.textContent = b.dataset.dica || ""; dica.style.opacity = 1; });
+  b.addEventListener("mousemove", ev => { const r = palco.getBoundingClientRect(); dica.style.left = (ev.clientX - r.left + 16) + "px"; dica.style.top = (ev.clientY - r.top + 14) + "px"; });
+  b.addEventListener("mouseleave", () => dica.style.opacity = 0);
+  b.addEventListener("click", () => { dica.style.opacity = 0; if (b.dataset.tela) return telaCheia(); abrir(b.dataset.abre, b); });
+}
+palco.addEventListener("pointerdown", ev => {
+  const r = palco.getBoundingClientRect(), o = document.createElement("div");
+  o.className = "onda"; o.style.left = (ev.clientX - r.left) + "px"; o.style.top = (ev.clientY - r.top) + "px";
+  palco.appendChild(o); setTimeout(() => o.remove(), 800);
+});
+function telaCheia() { som("clique"); if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(() => {}); }
+function aviso(t, tipo) {
+  som(tipo === "erro" ? "erro" : "ok");
+  const d = document.createElement("div"); d.className = "toast"; d.textContent = t; palco.appendChild(d);
+  setTimeout(() => d.style.opacity = 0, 2200); setTimeout(() => d.remove(), 2600);
+}
+async function acao(dados, silencioso) {
+  try {
+    const r = await (await fetch("/api/acao", {method: "POST", headers: {"X-Token": TOKEN, "Content-Type": "application/json"}, body: JSON.stringify(dados)})).json();
+    if (!silencioso) aviso(typeof r.resposta === "string" ? r.resposta : (r.ok ? "Feito" : "Falhou"), r.ok ? "ok" : "erro");
+    return r;
+  } catch (e) { aviso("Sem conexão com o JARVIS", "erro"); return {ok: false}; }
+}
+function jarvis(texto) { return acao({acao: "comando", texto}); }
+
+// ── painel holográfico ───────────────────────────────────────────────────────
+let painelAtual = null, botaoAtual = null;
+const PAINEIS = {}, ATUALIZA = {};
+function abrir(nome, botao) {
+  if (!PAINEIS[nome]) return;
+  som("abre");
+  $$(".menu").forEach(m => m.classList.remove("ativo"));
+  if (botao && botao.classList.contains("menu")) botao.classList.add("ativo");
+  painelAtual = nome; botaoAtual = botao;
+  const [titulo, html, depois] = PAINEIS[nome]();
+  $("#titulo").innerHTML = titulo; $("#corpo").innerHTML = html;
+  $("#veu").classList.add("on"); $("#painel").classList.add("on");
+  if (depois) depois();
+  if (ATUALIZA[nome]) ATUALIZA[nome]();
+}
+function fechar() {
+  if (!painelAtual) return;
+  som("fecha"); pararMic();
+  painelAtual = null; $$(".menu").forEach(m => m.classList.remove("ativo"));
+  $("#veu").classList.remove("on"); $("#painel").classList.remove("on");
+}
+$("#fechar").onclick = fechar; $("#veu").onclick = fechar;
+const cartao = (r, v, id) => `<div class="cartao"><small>${r}</small><b${id ? ` id="${id}"` : ""}>${v}</b></div>`;
+const setar = (id, v) => { const e = document.getElementById(id); if (e) e.innerHTML = v; };
+
+PAINEIS.sistema = () => {
+  const s = S || {};
+  return ["SOBRE O SISTEMA<small>" + esc(s.computador || "") + "</small>", `
+    <div class="abas"><button class="btn on" onclick="abrir('sistema')">SISTEMA</button><button class="btn" onclick="abrir('jarvis')">J.A.R.V.I.S</button><button class="btn" onclick="abrir('discos')">DISCOS</button></div>
+    <div class="grade">
+      ${cartao("Sistema operacional", esc(s.so) + (s.versao ? " · " + esc(s.versao) : ""))}
+      ${cartao("Build", esc(s.build))}
+      ${cartao("Arquitetura", esc(s.arquitetura) + " · " + esc(s.maquina))}
+      ${cartao("Computador", esc(s.computador))}
+      ${cartao("Usuário", esc(s.usuario))}
+      ${cartao("Processador", esc(s.cpu_nome))}
+      ${cartao("Núcleos", `${s.nucleos_fisicos} físicos · ${s.nucleos_logicos} lógicos`)}
+      ${cartao("Frequência", "--", "sFreq")}
+      ${cartao("Memória RAM", "--", "sRam")}
+      ${cartao("Placa de vídeo", "--", "sGpu")}
+      ${cartao("Ligado há", "--", "sUp")}
+      ${cartao("Processos", "--", "sProc")}
+      ${cartao("Bateria", "--", "sBat")}
+      ${cartao("IP local", "--", "sIp")}
+    </div>`];
+};
+ATUALIZA.sistema = () => {
+  if (!E) return;
+  setar("sFreq", E.cpu_freq ? (E.cpu_freq / 1000).toFixed(2) + " GHz" : "não informada");
+  setar("sRam", `${tam(E.ram.usada)} de ${tam(E.ram.total)} (${pct(E.ram.pct)})`);
+  setar("sGpu", E.gpu ? esc(E.gpu.nome) : "não informada");
+  setar("sUp", dur(E.uptime)); setar("sProc", E.total_processos || "--");
+  setar("sBat", E.bateria ? `${Math.round(E.bateria.pct)}% ${E.bateria.na_tomada ? "· na tomada" : "· na bateria"}` : "sem bateria (desktop)");
+  setar("sIp", esc(E.ip_local || "--"));
+};
+PAINEIS.jarvis = () => {
+  const s = S || {}, j = (E && E.jarvis) || {};
+  return [(TEMA ? "SOBRE A F.R.I.D.A.Y" : "SOBRE O J.A.R.V.I.S") + "<small>versão " + esc(s.jarvis_versao || "3.9") + "</small>", `
+    <div class="abas"><button class="btn" onclick="abrir('sistema')">SISTEMA</button><button class="btn on" onclick="abrir('jarvis')">J.A.R.V.I.S</button><button class="btn" onclick="abrir('discos')">DISCOS</button></div>
+    <div class="grade">
+      ${cartao("Assistente", "J.A.R.V.I.S BR")}
+      ${cartao("Versão", esc(s.jarvis_versao || "3.9") + " · HUD 3.9.1")}
+      ${cartao("Situação", j.conectado ? '<span class="ok">● conectado</span>' : '<span class="meio">● HUD sozinho</span>', "jSit")}
+      ${cartao("Estado agora", "--", "jEst")}
+      ${cartao("Plugins instalados", s.plugins ?? "--")}
+      ${cartao("Python", esc(s.python))}
+      ${cartao("Pasta", '<span style="font-size:.75em">' + esc(s.pasta) + "</span>")}
+      ${cartao("Base", "fork do Mark LVI (FatihMakes)")}
+    </div>
+    <h3>Atalhos</h3>
+    <div class="fila" style="opacity:.85">Espaço: falar com o JARVIS · F: tela cheia · Esc: fechar painel · 1–7: botões do menu</div>`];
+};
+ATUALIZA.jarvis = () => { const j = (E && E.jarvis) || {}; setar("jEst", j.conectado ? (ESTADO_TXT[j.estado] || j.estado || "pronto") : "—"); };
+PAINEIS.discos = () => ["MEMÓRIA E DISCOS", `
+  <div class="abas"><button class="btn" onclick="abrir('sistema')">SISTEMA</button><button class="btn" onclick="abrir('jarvis')">J.A.R.V.I.S</button><button class="btn on" onclick="abrir('discos')">DISCOS</button></div>
+  <div class="grade">${cartao("RAM em uso", "--", "dRam")}${cartao("RAM livre", "--", "dLivre")}${cartao("Rede hoje", "--", "dHoje")}</div>
+  <h3>Partições</h3><table><thead><tr><th>UNIDADE</th><th>USADO</th><th>LIVRE</th><th>TOTAL</th><th>%</th></tr></thead><tbody id="dPart"></tbody></table>`];
+ATUALIZA.discos = () => {
+  if (!E) return;
+  setar("dRam", `${tam(E.ram.usada)} (${pct(E.ram.pct)})`); setar("dLivre", tam(E.ram.livre));
+  setar("dHoje", `↓ ${tam(E.rede_hoje.down)} · ↑ ${tam(E.rede_hoje.up)}`);
+  setar("dPart", (E.particoes || []).map(p => `<tr><td>${esc(p.ponto)}</td><td>${tam(p.usado)}</td><td>${tam(p.livre)}</td><td>${tam(p.total)}</td><td class="${p.pct >= 90 ? "ruim" : p.pct >= 75 ? "meio" : "ok"}">${pct(p.pct)}</td></tr>`).join(""));
+};
+PAINEIS.internet = () => ["INTERNET E REDE", `
+  <div class="grade">${cartao("Conexão", "--", "iCon")}${cartao("Wi-Fi", "--", "iWifi")}${cartao("Ping", "--", "iPing")}
+  ${cartao("Download agora", "--", "iDown")}${cartao("Upload agora", "--", "iUp")}${cartao("Usado hoje", "--", "iHoje")}
+  ${cartao("IP local", "--", "iIp")}${cartao("IP público", "--", "iPub")}${cartao("Roteador", "--", "iGw")}</div>
+  <div class="fila"><button class="btn" onclick="acao({acao:'navegador'})">🌐 ABRIR NAVEGADOR</button>
+  <button class="btn" onclick="medirPing()">📡 MEDIR PING AGORA</button>
+  <button class="btn" onclick="jarvis('faz um teste de velocidade da internet')">⚡ TESTE DE VELOCIDADE (JARVIS)</button></div>
+  <h3>Pesquisar pelo JARVIS</h3>
+  <div class="fila"><input type="text" id="busca" placeholder="o que você quer pesquisar?" onkeydown="if(event.key==='Enter')pesquisar()"><button class="btn" onclick="pesquisar()">PESQUISAR</button></div>`];
+ATUALIZA.internet = () => {
+  if (!E) return;
+  setar("iCon", E.internet === false ? '<span class="ruim">● sem internet</span>' : '<span class="ok">● online</span>');
+  setar("iWifi", E.wifi && E.wifi.ssid ? esc(E.wifi.ssid) + (E.wifi.sinal != null ? ` · ${E.wifi.sinal}%` : "") : "cabo ou não informado");
+  setar("iPing", E.ping == null ? "--" : Math.round(E.ping) + " ms");
+  setar("iDown", vel(E.rede.down)); setar("iUp", vel(E.rede.up));
+  setar("iHoje", `↓ ${tam(E.rede_hoje.down)} · ↑ ${tam(E.rede_hoje.up)}`);
+  setar("iIp", esc(E.ip_local || "--")); setar("iPub", esc(E.ip_publico || "--")); setar("iGw", esc(E.gateway || "--"));
+};
+async function medirPing() {
+  aviso("Medindo…");
+  const r = await acao({acao: "ping"}, true), p = r && r.resposta;
+  if (p && typeof p === "object") { const v = Object.values(p).find(x => x && x.ms != null); aviso(v ? `Ping: ${Math.round(v.ms)} ms` : "Sem resposta do ping", v ? "ok" : "erro"); }
+  else aviso("Não consegui medir", "erro");
+}
+function pesquisar() { const t = $("#busca").value.trim(); if (t) { jarvis("pesquisa na internet: " + t); $("#busca").value = ""; } }
+PAINEIS.arquivos = () => ["ARQUIVOS", `
+  <div class="fila">
+    <button class="btn grande" onclick="acao({acao:'pasta',pasta:'documentos'})">📄 Documentos</button>
+    <button class="btn grande" onclick="acao({acao:'pasta',pasta:'downloads'})">⬇ Downloads</button>
+    <button class="btn grande" onclick="acao({acao:'pasta',pasta:'imagens'})">🖼 Imagens</button>
+    <button class="btn grande" onclick="acao({acao:'pasta',pasta:'area'})">🖥 Área de trabalho</button>
+    <button class="btn grande" onclick="acao({acao:'pasta',pasta:'casa'})">🏠 Pasta pessoal</button>
+  </div>
+  <h3>Pedir ao JARVIS</h3>
+  <div class="fila"><button class="btn" onclick="jarvis('organiza a minha pasta de downloads')">Organizar Downloads</button>
+  <button class="btn" onclick="jarvis('quais são os maiores arquivos do meu PC?')">Maiores arquivos</button></div>`];
+PAINEIS.musica = () => ["MÚSICA", `
+  <div class="fila" style="justify-content:center">
+    <button class="btn grande" title="Anterior" onclick="acao({acao:'midia',tecla:'anterior'},true);som('clique')">⏮</button>
+    <button class="btn grande" title="Tocar / pausar" onclick="acao({acao:'midia',tecla:'tocar'},true);som('clique')">⏯</button>
+    <button class="btn grande" title="Próxima" onclick="acao({acao:'midia',tecla:'proxima'},true);som('clique')">⏭</button>
+  </div>
+  <div class="fila" style="justify-content:center">
+    <button class="btn" onclick="acao({acao:'midia',tecla:'vol_menos'},true)">🔉 VOLUME −</button>
+    <button class="btn" onclick="acao({acao:'midia',tecla:'mudo'},true)">🔇 MUDO</button>
+    <button class="btn" onclick="acao({acao:'midia',tecla:'vol_mais'},true)">🔊 VOLUME +</button>
+  </div>
+  <p style="opacity:.7;text-align:center">Os botões apertam as teclas de mídia do Windows: funcionam com Spotify, YouTube, Windows Media Player…</p>
+  <h3>Pedir ao JARVIS</h3>
+  <div class="fila"><input type="text" id="musicaTxt" placeholder="que música ou artista?" onkeydown="if(event.key==='Enter')tocar()"><button class="btn" onclick="tocar()">▶ TOCAR</button>
+  <button class="btn" onclick="acao({acao:'pasta',pasta:'musica'})">📁 PASTA MÚSICA</button></div>`];
+function tocar() { const t = $("#musicaTxt").value.trim(); jarvis(t ? "toca " + t : "toca uma música"); }
+PAINEIS.videos = () => ["VÍDEOS", `
+  <div class="fila"><button class="btn grande" onclick="acao({acao:'pasta',pasta:'videos'})">📁 Pasta Vídeos</button>
+  <button class="btn grande" onclick="jarvis('abre o YouTube')">▶ YouTube</button></div>
+  <h3>Procurar vídeo pelo JARVIS</h3>
+  <div class="fila"><input type="text" id="videoTxt" placeholder="que vídeo você quer ver?" onkeydown="if(event.key==='Enter')video()"><button class="btn" onclick="video()">PROCURAR</button></div>`];
+function video() { const t = $("#videoTxt").value.trim(); if (t) jarvis("toca no YouTube o vídeo " + t); }
+PAINEIS.jogos = () => ["JOGOS", `
+  <div class="fila"><button class="btn grande" onclick="acao({acao:'steam'})">🎮 Steam</button>
+  <button class="btn grande" onclick="jarvis('ativa o modo jogo')">⚡ Modo jogo</button>
+  <button class="btn grande" onclick="jarvis('abre o arcade')">👾 Arcade do JARVIS</button></div>
+  <h3>Desempenho agora</h3>
+  <div class="grade">${cartao("CPU", "--", "jgCpu")}${cartao("RAM", "--", "jgRam")}${cartao("GPU", "--", "jgGpu")}${cartao("Ping", "--", "jgPing")}</div>`];
+ATUALIZA.jogos = () => { if (!E) return; setar("jgCpu", pct(E.cpu)); setar("jgRam", pct(E.ram.pct)); setar("jgGpu", E.gpu ? pct(E.gpu.uso) : "--"); setar("jgPing", E.ping == null ? "--" : Math.round(E.ping) + " ms"); };
+PAINEIS.processos = () => ["PROCESSOS", `<p id="pTot" style="opacity:.75"></p>
+  <table><thead><tr><th>PROCESSO</th><th>PID</th><th>CPU</th><th>RAM</th></tr></thead><tbody id="pLin"></tbody></table>
+  <div class="fila"><button class="btn" onclick="jarvis('abre o monitor do sistema')">📊 ABRIR O MONITOR COMPLETO</button></div>`];
+ATUALIZA.processos = () => {
+  if (!E) return;
+  setar("pTot", `${E.total_processos} processos rodando · CPU total ${pct(E.cpu)}`);
+  setar("pLin", E.processos.map(p => `<tr><td>${esc(p.nome)}</td><td>${p.pid}</td><td>${p.cpu.toFixed(1)}%</td><td>${tam(p.ram)}</td></tr>`).join(""));
+};
+PAINEIS.gpu = () => ["PLACA DE VÍDEO", `<div class="grade">${cartao("Modelo", "--", "gNome")}${cartao("Uso", "--", "gUso")}${cartao("Temperatura", "--", "gT")}
+  ${cartao("Memória de vídeo", "--", "gV")}${cartao("Clock", "--", "gC")}</div>
+  <h3>Uso nos últimos minutos</h3><svg class="graf" id="gGrande" viewBox="0 0 600 120" preserveAspectRatio="none" style="width:100%;height:calc(var(--k)*140px)"></svg>`];
+ATUALIZA.gpu = () => {
+  if (!E) return; const g = E.gpu;
+  if (!g) { setar("gNome", "não informada (só placas NVIDIA mostram uso e temperatura)"); return; }
+  setar("gNome", esc(g.nome)); setar("gUso", pct(g.uso)); setar("gT", g.temp == null ? "--" : Math.round(g.temp) + "°C");
+  setar("gV", g.vram_total ? `${Math.round(g.vram_usada)} de ${Math.round(g.vram_total)} MB` : "--");
+  setar("gC", g.clock_mhz ? g.clock_mhz + " MHz" : "--");
+  const s = $("#gGrande"); if (s) grafico(s, E.hist.gpu || [], 100);
+};
+PAINEIS.diagnostico = () => ["DIAGNÓSTICO", `<div class="diag" id="diag"></div><p class="msg" id="diagFim"></p>
+  <div class="fila"><button class="btn" onclick="abrir('diagnostico')">↻ RODAR DE NOVO</button><button class="btn" onclick="jarvis('analisa a saúde do meu PC')">🧠 PEDIR ANÁLISE AO JARVIS</button></div>`,
+  () => {
+    if (!E) return;
+    const it = [];
+    const nota = (v, a, b) => v == null ? ["meio", "não informado"] : v >= b ? ["ruim", "ALTO"] : v >= a ? ["meio", "atenção"] : ["ok", "normal"];
+    it.push(["Processador", pct(E.cpu), ...nota(E.cpu, 70, 90)]);
+    it.push(["Memória RAM", pct(E.ram.pct), ...nota(E.ram.pct, 75, 90)]);
+    it.push([`Disco ${E.disco.ponto}`, pct(E.disco.pct), ...nota(E.disco.pct, 80, 92)]);
+    it.push(["Temperatura CPU", E.cpu_temp == null ? "--" : Math.round(E.cpu_temp) + "°C", ...nota(E.cpu_temp, 75, 88)]);
+    if (E.gpu) it.push(["Placa de vídeo", `${pct(E.gpu.uso)} · ${E.gpu.temp == null ? "--" : Math.round(E.gpu.temp) + "°C"}`, ...nota(E.gpu.temp, 75, 85)]);
+    it.push(["Internet", E.internet === false ? "offline" : (E.ping == null ? "online" : Math.round(E.ping) + " ms"), ...(E.internet === false ? ["ruim", "SEM REDE"] : nota(E.ping, 80, 200))]);
+    if (E.bateria) it.push(["Bateria", Math.round(E.bateria.pct) + "%", ...(E.bateria.na_tomada ? ["ok", "na tomada"] : nota(100 - E.bateria.pct, 70, 85))]);
+    it.push(["Ligado há", dur(E.uptime), ...(E.uptime > 7 * 86400 ? ["meio", "reinicie quando der"] : ["ok", "normal"])]);
+    $("#diag").innerHTML = it.map(([n, v, c, t]) => `<div><span>${n}</span><span>${v} &nbsp;<b class="${c}">${t}</b></span></div>`).join("");
+    const linhas = $$("#diag div");
+    linhas.forEach((l, i) => setTimeout(() => { l.classList.add("v"); som("passa"); }, 180 * (i + 1)));
+    const ruins = it.filter(x => x[2] === "ruim").length, meios = it.filter(x => x[2] === "meio").length;
+    setTimeout(() => { setar("diagFim", ruins ? `<span class="ruim">${ruins} ponto(s) pedindo atenção agora.</span>` : meios ? `<span class="meio">Tudo funcionando, com ${meios} ponto(s) para observar.</span>` : '<span class="ok">Todos os sistemas normais.</span>'); som("ok"); }, 180 * (linhas.length + 1));
+  }];
+PAINEIS.config = () => ["CONFIGURAÇÕES DO HUD", `
+  <div class="chave"><span>Cor do HUD</span><span style="width:45%"><input type="range" min="0" max="359" value="${AJ.cor}" oninput="AJ.cor=+this.value;salvar()"></span></div>
+  ${["som:Sons de clique e alerta", "anim:Animações", "varre:Linha de varredura", "part:Partículas", "boot:Animação de abertura"].map(x => { const [k, n] = x.split(":"); return `<div class="chave"><span>${n}</span><button class="btn ${AJ[k] ? "on" : ""}" onclick="AJ['${k}']=!AJ['${k}'];salvar();abrir('config')">${AJ[k] ? "LIGADO" : "DESLIGADO"}</button></div>`; }).join("")}
+  <div class="fila"><button class="btn" onclick="telaCheia()">⛶ TELA CHEIA</button><button class="btn" onclick="AJ.cor=0;salvar();abrir('config')">COR ORIGINAL</button>
+  <button class="btn" onclick="jarvis('abre as configurações do JARVIS')">⚙ CONFIGURAÇÕES DO JARVIS</button></div>`];
+
+// ── falar com o JARVIS ───────────────────────────────────────────────────────
+const historico = [];
+PAINEIS.comando = () => ["FALAR COM O JARVIS", `
+  <button class="mic" id="mic" onclick="alternarMic()">🎙<br>TOQUE PARA FALAR</button>
+  <div class="fila"><input type="text" id="cmd" placeholder="ou digite: “Jarvis, que horas são?”" onkeydown="if(event.key==='Enter')enviarCmd()"><button class="btn" onclick="enviarCmd()">ENVIAR</button></div>
+  <p class="msg" id="cmdMsg"></p>
+  <h3>Sugestões</h3>
+  <div class="fila">${["como está o PC?", "que horas são?", "como está o tempo hoje?", "abre o monitor do sistema", "toca uma música", "me conta uma novidade"].map(s => `<button class="btn" onclick="enviarCmd('${s}')">${s}</button>`).join("")}</div>
+  <h3>Enviados</h3><div id="hist" style="opacity:.8">${historico.map(h => `<div>› ${esc(h)}</div>`).join("") || "nenhum ainda"}</div>`,
+  () => setTimeout(() => $("#cmd") && $("#cmd").focus(), 200)];
+ATUALIZA.comando = () => {
+  const j = (E && E.jarvis) || {}, m = $("#cmdMsg");
+  if (m && !m.dataset.fixo) m.innerHTML = j.conectado ? `<span class="ok">● JARVIS conectado</span> · ${ESTADO_TXT[j.estado] || "pronto"}` : '<span class="meio">● O HUD está sozinho: abra o JARVIS para os comandos funcionarem.</span>';
+};
+async function enviarCmd(t) {
+  const c = $("#cmd"); t = (t ?? (c ? c.value : "")).trim(); if (!t) return;
+  if (c) c.value = "";
+  const r = await jarvis(t);
+  if (r.ok) { historico.unshift(t); historico.splice(8); setar("hist", historico.map(h => `<div>› ${esc(h)}</div>`).join("")); }
+}
+let reco = null, streamMic = null;
+async function alternarMic() {
+  if (reco) return pararMic();
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { aviso("Este navegador não reconhece voz: use o Edge ou o Chrome, ou digite.", "erro"); return; }
+  reco = new SR(); reco.lang = "pt-BR"; reco.interimResults = true; reco.continuous = false;
+  const mic = $("#mic"); mic.classList.add("ouvindo"); mic.innerHTML = "🎙<br>OUVINDO…"; som("abre");
+  try {   // o equalizador do círculo segue a sua voz
+    streamMic = await navigator.mediaDevices.getUserMedia({audio: true});
+    ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+    analisador = ac.createAnalyser(); analisador.fftSize = 128; ac.createMediaStreamSource(streamMic).connect(analisador);
+  } catch (e) {}
+  let final = "";
+  reco.onresult = ev => {
+    let parcial = "";
+    for (const r of ev.results) { if (r.isFinal) final = r[0].transcript; else parcial += r[0].transcript; }
+    const c = $("#cmd"); if (c) c.value = final || parcial;
+  };
+  reco.onerror = ev => { if (ev.error !== "no-speech" && ev.error !== "aborted") aviso("Microfone: " + ev.error, "erro"); };
+  reco.onend = () => { const f = final.trim(); pararMic(); if (f) enviarCmd(f); };
+  reco.start();
+}
+function pararMic() {
+  try { reco && reco.abort(); } catch (e) {}
+  reco = null; analisador = null;
+  if (streamMic) { streamMic.getTracks().forEach(t => t.stop()); streamMic = null; }
+  const mic = $("#mic"); if (mic) { mic.classList.remove("ouvindo"); mic.innerHTML = "🎙<br>TOQUE PARA FALAR"; }
+}
+
+// ── teclado ──────────────────────────────────────────────────────────────────
+const ORDEM = ["sistema", "internet", "arquivos", "musica", "videos", "jogos", "config"];
+addEventListener("keydown", ev => {
+  if (ev.target.tagName === "INPUT") { if (ev.key === "Escape") fechar(); return; }
+  if (ev.key === "Escape") fechar();
+  else if (ev.key === "f" || ev.key === "F") telaCheia();
+  else if (ev.key === " ") { ev.preventDefault(); painelAtual === "comando" ? alternarMic() : abrir("comando"); }
+  else if (ev.key >= "1" && ev.key <= "7") abrir(ORDEM[+ev.key - 1], $$(".menu")[+ev.key - 1]);
+});
+
+// ── inicialização ────────────────────────────────────────────────────────────
+async function iniciar() {
+  const boot = $("#boot");
+  const passos = ["CARREGANDO NÚCLEO", "LENDO SENSORES", "CONECTANDO AO JARVIS", "CALIBRANDO HUD", "SISTEMA ONLINE"];
+  const tarefas = Promise.all([buscarSobre(), buscar()]);
+  const pedido = location.hash.slice(1);      // aberto por um clique no HUD da tela principal
+  if (AJ.boot && !pedido && !TEMA) {
+    boot.onclick = () => boot.classList.add("sai");
+    for (let i = 0; i < passos.length; i++) {
+      if (boot.classList.contains("sai")) break;
+      $("#bootTxt").textContent = passos[i]; $("#bootProg").style.width = (i + 1) / passos.length * 100 + "%";
+      som("passa"); await new Promise(r => setTimeout(r, 380));
+    }
+  }
+  await tarefas;
+  boot.classList.add("sai"); som("abre");
+  setTimeout(() => boot.remove(), 900);
+  setInterval(buscar, 1500);
+  requestAnimationFrame(quadro);
+  if (PAINEIS[pedido]) abrir(pedido, ORDEM.includes(pedido) ? $$(".menu")[ORDEM.indexOf(pedido)] : null);
+}
+iniciar();
+</script>
+</body>
+</html>

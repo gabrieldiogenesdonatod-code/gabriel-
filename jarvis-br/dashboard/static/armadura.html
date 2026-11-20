@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JARVIS · Armadura</title>
+  <!-- Fork PT-BR 1.6: status do traje. Bateria e sinal vêm do próprio celular; o resto, do PC. -->
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --bg: #04070d; --hud: #38d6ff; --hud2: rgba(56,214,255,0.18); --texto: #d8f6ff; --mudo: #5f8597;
+            --ouro: #ffb547; --verm: #ff5a5a; }
+    html, body { background: radial-gradient(circle at 50% 30%, #0b1a26 0%, var(--bg) 70%); color: var(--texto);
+      font-family: 'Segoe UI', -apple-system, sans-serif; min-height: 100%; }
+    header { display: flex; align-items: center; gap: 10px; padding: 14px 16px; }
+    header a { color: var(--mudo); text-decoration: none; font-size: 13px; border: 1px solid var(--hud2);
+      padding: 6px 10px; border-radius: 10px; }
+    .titulo { letter-spacing: 6px; font-weight: 700; color: var(--hud); font-size: 14px; flex: 1; }
+    #hora { color: var(--mudo); font-size: 12px; }
+    main { padding: 4px 16px 40px; max-width: 640px; margin: 0 auto; }
+    .reator { position: relative; width: min(64vw, 260px); aspect-ratio: 1; margin: 6px auto 18px; }
+    .reator svg { width: 100%; height: 100%; }
+    .reator .centro { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center;
+      justify-content: center; text-align: center; }
+    .centro b { font-size: 42px; color: var(--hud); text-shadow: 0 0 18px rgba(56,214,255,.6); }
+    .centro span { font-size: 10px; letter-spacing: 3px; color: var(--mudo); }
+    .grade { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .card { border: 1px solid var(--hud2); border-radius: 12px; padding: 12px; background: rgba(56,214,255,0.04); }
+    .rot { font-size: 10px; letter-spacing: 2px; color: var(--mudo); }
+    .val { font-size: 22px; font-weight: 700; margin-top: 4px; }
+    .barra { height: 4px; background: rgba(255,255,255,.08); border-radius: 9px; margin-top: 8px; overflow: hidden; }
+    .barra i { display: block; height: 100%; width: 0; background: var(--hud); transition: width .5s; }
+    .clima { margin-top: 12px; font-size: 13px; color: var(--texto); line-height: 1.5; }
+    .alerta { color: var(--ouro) !important; } .ruim { color: var(--verm) !important; }
+    #rotating { transform-origin: 50% 50%; animation: gira 14s linear infinite; }
+    @keyframes gira { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <header><div class="titulo">ARMADURA</div><span id="hora"></span><a href="/">‹ Voltar</a></header>
+  <main>
+    <div class="reator">
+      <svg viewBox="0 0 200 200" aria-hidden="true">
+        <circle cx="100" cy="100" r="92" fill="none" stroke="rgba(56,214,255,.15)" stroke-width="2"/>
+        <g id="rotating"><circle cx="100" cy="100" r="80" fill="none" stroke="#38d6ff" stroke-width="2"
+          stroke-dasharray="6 10" opacity=".7"/></g>
+        <circle id="anel" cx="100" cy="100" r="68" fill="none" stroke="#38d6ff" stroke-width="7"
+          stroke-linecap="round" stroke-dasharray="0 428" transform="rotate(-90 100 100)"/>
+      </svg>
+      <div class="centro"><b id="int">--</b><span>INTEGRIDADE</span></div>
+    </div>
+    <div class="grade">
+      <div class="card"><div class="rot">CELULAR</div><div class="val" id="bat">--</div><div class="barra"><i id="bbat"></i></div></div>
+      <div class="card"><div class="rot">SINAL</div><div class="val" id="sinal">--</div></div>
+      <div class="card"><div class="rot">REATOR · CPU</div><div class="val" id="cpu">--</div><div class="barra"><i id="bcpu"></i></div></div>
+      <div class="card"><div class="rot">MEMÓRIA · RAM</div><div class="val" id="ram">--</div><div class="barra"><i id="bram"></i></div></div>
+      <div class="card"><div class="rot">GPU</div><div class="val" id="gpu">--</div><div class="barra"><i id="bgpu"></i></div></div>
+      <div class="card"><div class="rot">TEMPERATURA</div><div class="val" id="temp">--</div></div>
+    </div>
+    <div class="card clima"><div class="rot">AMBIENTE</div><div id="clima">—</div></div>
+  </main>
+  <script>
+    const token = sessionStorage.getItem('jarvis_token');
+    if (!token) location.replace('/login');
+    const $ = (id) => document.getElementById(id);
+    function nivel(el, v, alto, muitoAlto) {
+      el.classList.toggle('alerta', v >= alto && v < muitoAlto); el.classList.toggle('ruim', v >= muitoAlto);
+    }
+    function barra(id, v) { $(id).style.width = Math.max(0, Math.min(100, v || 0)) + '%'; }
+    async function celular() {
+      try {
+        const b = await navigator.getBattery();
+        const pct = Math.round(b.level * 100);
+        $('bat').textContent = pct + '%' + (b.charging ? ' ⚡' : ''); barra('bbat', pct);
+        $('bat').classList.toggle('ruim', pct < 15 && !b.charging);
+      } catch (e) { $('bat').textContent = 'n/d'; }
+      const c = navigator.connection;
+      $('sinal').textContent = c ? ((c.effectiveType || '').toUpperCase() + (c.downlink ? ' · ' + c.downlink + ' Mb/s' : '')) : (navigator.onLine ? 'online' : 'offline');
+    }
+    async function pc() {
+      try {
+        const r = await fetch('/api/armadura', {headers: {'Authorization': 'Bearer ' + token}});
+        if (r.status === 401) { location.replace('/login'); return; }
+        const d = await r.json();
+        $('hora').textContent = d.hora || '';
+        for (const k of ['cpu', 'ram', 'gpu']) {
+          $(k).textContent = (d[k] ?? '--') + (d[k] != null ? '%' : ''); barra('b' + k, d[k]); nivel($(k), d[k] || 0, 75, 92);
+        }
+        $('temp').textContent = d.temp != null ? d.temp + '°C' : 'sem sensor'; nivel($('temp'), d.temp || 0, 75, 88);
+        const s = d.saude;
+        $('int').textContent = s != null ? s : '--';
+        $('anel').setAttribute('stroke-dasharray', `${(s || 0) * 4.27} 428`);
+        $('clima').textContent = (d.internet === false ? 'SEM INTERNET · ' : '') + (d.clima || '—');
+      } catch (e) {}
+    }
+    celular(); pc(); setInterval(celular, 15000); setInterval(pc, 5000);
+  </script>
+</body>
+</html>

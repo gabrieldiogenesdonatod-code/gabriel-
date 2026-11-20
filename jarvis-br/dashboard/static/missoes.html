@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Missões · JARVIS</title>
+<!-- Fork PT-BR 2.4: painel MISSÕES — tarefas longas em segundo plano com progresso, pausar, continuar e cancelar. -->
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#04070d;--hud:#38d6ff;--hud2:rgba(56,214,255,.2);--hud3:rgba(56,214,255,.06);--texto:#d8f6ff;--mudo:#6d93a5;--ok:#5dff9b;--erro:#ff6b6b;--pausa:#ffcf5c}
+html,body{background:var(--bg);color:var(--texto);font-family:'Segoe UI',-apple-system,sans-serif;min-height:100%}
+header{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--hud2);position:sticky;top:0;background:var(--bg)}
+.titulo{letter-spacing:4px;font-weight:700;color:var(--hud);font-size:14px;text-shadow:0 0 10px rgba(56,214,255,.5);flex:1}
+#resumo{font-size:12px;color:var(--mudo)}
+main{max-width:860px;margin:0 auto;padding:16px}
+.m{border:1px solid var(--hud2);background:var(--hud3);border-radius:14px;padding:14px 16px;margin-bottom:12px}
+.topo{display:flex;align-items:baseline;gap:10px}
+.topo b{font-size:15px;flex:1}
+.estado{font-size:11px;letter-spacing:1px;text-transform:uppercase;padding:2px 8px;border-radius:9px;border:1px solid currentColor}
+.rodando{color:var(--hud)}.pausada,.fila{color:var(--pausa)}.concluida{color:var(--ok)}.erro,.cancelada{color:var(--erro)}
+.barra{height:8px;border-radius:9px;background:rgba(255,255,255,.08);margin:10px 0 6px;overflow:hidden}
+.barra i{display:block;height:100%;background:linear-gradient(90deg,#1a8fb3,var(--hud));border-radius:9px;transition:width .6s}
+.rodando .barra i{animation:brilho 1.6s linear infinite;background-size:200% 100%;background-image:linear-gradient(90deg,#1a8fb3,var(--hud),#1a8fb3)}
+@keyframes brilho{to{background-position:-200% 0}}
+.etapa{font-size:12px;color:var(--mudo);display:flex;justify-content:space-between;gap:10px}
+.botoes{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+button{font:inherit;font-size:12px;color:var(--texto);background:rgba(56,214,255,.14);border:1px solid var(--hud2);border-radius:16px;padding:5px 12px;cursor:pointer}
+button:hover{border-color:var(--hud)}
+button.perigo{background:rgba(255,107,107,.1);border-color:rgba(255,107,107,.4)}
+details{margin-top:8px;font-size:12px;color:var(--mudo)}
+details pre{white-space:pre-wrap;font-family:Consolas,monospace;font-size:11px;margin-top:6px;line-height:1.5}
+.vazio{color:var(--mudo);text-align:center;margin-top:60px;line-height:1.7}
+.resultado{font-size:13px;margin-top:6px;color:var(--ok)}
+</style>
+</head>
+<body>
+<header><span class="titulo">MISSÕES</span><span id="resumo"></span></header>
+<main id="lista"><p class="vazio">carregando…</p></main>
+<script>
+const T = new URLSearchParams(location.search).get("t") || "";
+const NOMES = {rodando:"rodando", pausada:"pausada", fila:"na fila", concluida:"concluída", cancelada:"cancelada", erro:"erro"};
+function esc(s){ return String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+async function api(c, corpo){
+  const r = await fetch(c + "?t=" + encodeURIComponent(T), corpo ? {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(corpo)} : {});
+  return r.json();
+}
+async function cmd(acao, id){
+  if (acao === "cancelar" && !confirm("Cancelar a missão " + id + "?")) return;
+  await api("/api/missoes/cmd", {acao, id}); atualizar();
+}
+function botoes(m){
+  const b = [];
+  if (m.estado === "rodando") b.push(`<button onclick="cmd('pausar',${m.id})">⏸ Pausar</button>`);
+  if (["pausada","erro","fila"].includes(m.estado)) b.push(`<button onclick="cmd('continuar',${m.id})">▶ Continuar</button>`);
+  if (!["concluida","cancelada"].includes(m.estado)) b.push(`<button class="perigo" onclick="cmd('cancelar',${m.id})">✕ Cancelar</button>`);
+  if (["concluida","cancelada","erro"].includes(m.estado)) b.push(`<button onclick="cmd('apagar',${m.id})">Tirar da lista</button>`);
+  return b.join("");
+}
+async function atualizar(){
+  let d; try { d = await api("/api/missoes"); } catch(e){ return; }
+  const ms = (d.missoes || []).slice().reverse();
+  const ativas = ms.filter(m => ["rodando","fila","pausada"].includes(m.estado)).length;
+  document.getElementById("resumo").textContent = ms.length ? `${ativas} ativa(s) · ${ms.length} no total` : "";
+  document.getElementById("lista").innerHTML = ms.length ? ms.map(m => `
+    <div class="m ${m.estado}">
+      <div class="topo"><b>#${m.id} ${esc(m.titulo)}</b><span class="estado ${m.estado}">${NOMES[m.estado]||m.estado}</span></div>
+      <div class="barra"><i style="width:${Math.round((m.progresso||0)*100)}%"></i></div>
+      <div class="etapa"><span>${esc(m.etapa||"")}</span><span>${Math.round((m.progresso||0)*100)}%${m.total ? ` · ${m.feito||0}/${m.total}` : ""}</span></div>
+      ${m.resultado ? `<div class="resultado">${esc(m.resultado)}</div>` : ""}
+      <div class="botoes">${botoes(m)}</div>
+      ${(m.log||[]).length ? `<details><summary>registro</summary><pre>${esc(m.log.join("\n"))}</pre></details>` : ""}
+    </div>`).join("")
+    : `<p class="vazio">Nenhuma missão.<br>Diga, por exemplo: "Jarvis, organiza as fotos da pasta Imagens"<br>ou "Jarvis, monitora o preço do PS5 por uma semana".</p>`;
+}
+atualizar(); setInterval(atualizar, 2000);
+</script>
+</body>
+</html>

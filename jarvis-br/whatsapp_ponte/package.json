@@ -1,0 +1,13 @@
+{
+  "name": "jarvis-whatsapp-ponte",
+  "version": "2.3.0",
+  "private": true,
+  "description": "Ponte entre o WhatsApp Web e o J.A.R.V.I.S BR (só escuta em 127.0.0.1).",
+  "main": "ponte.js",
+  "license": "UNLICENSED",
+  "engines": { "node": ">=18" },
+  "dependencies": {
+    "qrcode": "^1.5.3",
+    "whatsapp-web.js": "^1.26.0"
+  }
+}

@@ -1,0 +1,74 @@
+plugins {
+    id "com.android.application"
+    id "com.chaquo.python"
+}
+
+// A pasta do projeto J.A.R.V.I.S BR (dois níveis acima: jarvis-br/android/app → jarvis-br).
+def raizJarvis = file("../..")
+def pastaAssets = file("$buildDir/jarvis_assets")
+
+android {
+    namespace "br.jarvis.app"
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "br.jarvis.app"
+        minSdk 26
+        targetSdk 34
+        versionCode 390
+        versionName "3.9"
+        ndk { abiFilters "arm64-v8a", "armeabi-v7a", "x86_64" }
+    }
+
+    // Chave fixa do projeto: assim cada APK novo instala POR CIMA do anterior, sem perder as suas memórias.
+    // É uma chave só para uso pessoal (não serve para publicar na Play Store).
+    signingConfigs {
+        jarvis {
+            storeFile file("jarvis.keystore")
+            storePassword "jarvisbr"
+            keyAlias "jarvis"
+            keyPassword "jarvisbr"
+        }
+    }
+    buildTypes {
+        debug { signingConfig signingConfigs.jarvis }
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.jarvis
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    sourceSets {
+        main { assets.srcDirs += [pastaAssets] }
+    }
+}
+
+chaquopy {
+    defaultConfig {
+        version "3.11"
+        pip {
+            install "requests"
+        }
+        pyc {
+            src false
+        }
+    }
+}
+
+// O projeto inteiro (plugins, modos, core, cérebro, organismo, celular/…) vai dentro do APK num zip.
+// No primeiro uso o app copia para a pasta dele; as suas memórias nunca são sobrescritas.
+tasks.register("empacotarJarvis", Zip) {
+    from(raizJarvis) {
+        into "jarvis-br"
+        exclude "android/**", ".github/**", ".git/**", "tests/**", "docs/**", "ia_local/**",
+                "**/__pycache__/**", "**/*.pyc", ".pytest_cache/**", "*.zip", "*.bat", "*.exe",
+                "memory/*.db", "memory/*.db-*", "memory/*.json", "memory/*.key", "memory/biological/**", "memory/lote2/**",
+                "celular/jarvis_android.html", "config/api_keys.json"
+    }
+    archiveFileName = "jarvis-br.zip"
+    destinationDirectory = pastaAssets
+}
+tasks.named("preBuild") { dependsOn "empacotarJarvis" }

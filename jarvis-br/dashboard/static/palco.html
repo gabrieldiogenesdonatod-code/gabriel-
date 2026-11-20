@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Palco · JARVIS + FRIDAY</title>
+<!-- Fork PT-BR 2.7: palco das cenas com mais de um personagem (JARVIS, FRIDAY, ULTRON, reunião, radionovela…).
+     Cada personagem é um rosto holográfico da sua cor; quem fala acende e mexe a boca. Estado em /api/palco.
+     ?demo=1 mostra JARVIS e FRIDAY conversando (para testar). Esc encerra a cena.
+     2.14: cada rosto mostra a emoção da fala (feliz, triste, surpresa…) e a FRIDAY tem rosto próprio
+     (cabelo chanel, franja, cílios e batom). -->
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:#02050a;color:#e8fbff;font-family:'Segoe UI',-apple-system,sans-serif;overflow:hidden}
+canvas{position:fixed;inset:0;width:100vw;height:100vh}
+#titulo{position:fixed;top:16px;left:0;right:0;text-align:center;letter-spacing:.3em;font-size:13px;color:#7ea3b4;text-transform:uppercase}
+#fala{position:fixed;left:6vw;right:6vw;bottom:7vh;text-align:center;font-size:clamp(16px,2.4vw,28px);font-weight:600;line-height:1.35;
+  text-shadow:0 2px 8px #000;min-height:3em}
+#fala b{display:block;font-size:.55em;letter-spacing:.25em;margin-bottom:6px}
+#opcoes{position:fixed;left:0;right:0;bottom:4vh;display:flex;gap:12px;justify-content:center;flex-wrap:wrap;padding:0 16px}
+#opcoes div{border:1px solid rgba(56,214,255,.5);border-radius:14px;padding:10px 16px;background:rgba(56,214,255,.08);font-size:16px;max-width:380px}
+#rodape{position:fixed;left:0;right:0;bottom:10px;text-align:center;font-size:12px;color:#7ea3b4}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="titulo"></div>
+<div id="fala"></div>
+<div id="opcoes"></div>
+<div id="rodape"></div>
+<script>
+"use strict";
+const Q = new URLSearchParams(location.search), T = Q.get("t") || "";
+const cv = document.getElementById("c"), ctx = cv.getContext("2d");
+let W = 0, H = 0, D = 1;
+function ajustar(){ D = devicePixelRatio || 1; W = cv.width = innerWidth * D; H = cv.height = innerHeight * D; }
+addEventListener("resize", ajustar); ajustar();
+let estado = {personagens: [], quem: "", texto: "", nivel: 0, id: -1, opcoes: [], titulo: "", rodape: ""};
+const brilho = {}, nivelSuave = {};
+function aplicar(e){
+  const mudou = e.id !== estado.id; estado = e;
+  document.getElementById("titulo").textContent = e.titulo || "";
+  document.getElementById("rodape").textContent = e.rodape || "";
+  if (mudou){
+    const p = e.personagens.find(x => x.id === e.quem);
+    document.getElementById("fala").innerHTML = e.texto ? `<b style="color:rgb(${p ? p.cor : "56,214,255"})">${(p ? p.nome : e.quem)}</b>${esc(e.texto)}` : "";
+    document.getElementById("opcoes").innerHTML = (e.opcoes || []).map((o, i) => `<div><b>${i + 1}.</b> ${esc(o)}</div>`).join("");
+  }
+}
+function esc(s){ return String(s || "").replace(/[&<>]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;"}[c])); }
+// 2.14: emoções no palco (mesma tabela de core/emocoes.py, em escala do desenho 2D)
+//   s sorriso · a boca aberta · sb sobrancelhas · sd ponta de dentro · st torta · o olhos · oy olhar
+const EMO = {neutro: {}, feliz: {s: .9, sb: .25, o: .78, c: "255,210,90"},
+  animado: {s: 1, a: .32, sb: .55, o: 1.12, c: "255,170,60"},
+  triste: {s: -.75, sd: .9, sb: -.1, o: .78, oy: .55, c: "90,140,255"},
+  surpresa: {a: .55, sb: 1, o: 1.35, s: .05, c: "235,245,255"},
+  serio: {sd: -.45, sb: -.2, o: .85, s: -.2, c: "255,140,80"},
+  raiva: {sd: -1, sb: -.35, o: .7, s: -.4, c: "255,60,60"},
+  desconfiado: {st: .85, o: .72, s: -.15, c: "200,160,255"},
+  pensativo: {st: .35, oy: -.55, o: .92, s: -.05, c: "140,220,255"},
+  envergonhado: {s: .45, sd: .4, o: .82, oy: .5, c: "255,120,150"}};
+const emoSuave = {};
+function emoPasso(id, nome){
+  const alvo = EMO[nome] || {}, e = emoSuave[id] || (emoSuave[id] = {s: 0, a: 0, sb: 0, sd: 0, st: 0, o: 1, oy: 0, f: 0});
+  for (const k of ["s", "a", "sb", "sd", "st", "oy"]) e[k] += ((alvo[k] || 0) - e[k]) * .12;
+  e.o += ((alvo.o || 1) - e.o) * .12;
+  e.f += ((alvo.c ? 1 : 0) - e.f) * .08;
+  if (alvo.c) e.c = alvo.c;
+  return e;
+}
+function mistura(c1, c2, f){
+  const a = c1.split(",").map(Number), b = (c2 || c1).split(",").map(Number);
+  return a.map((v, i) => Math.round(v + (b[i] - v) * f)).join(",");
+}
+function curva(pts){ ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); ctx.bezierCurveTo(pts[1][0], pts[1][1], pts[2][0], pts[2][1], pts[3][0], pts[3][1]); ctx.stroke(); }
+function cabeloFriday(x, y, r, cor, a, t, frente){
+  ctx.lineCap = "round";
+  const bal = Math.sin(t * 1.3) * r * .015;
+  if (!frente){
+    for (const s of [-1, 1]) for (let i = 0; i < 7; i++){
+      const u = i / 6;
+      ctx.strokeStyle = `rgba(${cor},${(.55 - u * .25) * a})`; ctx.lineWidth = r * (.022 - u * .008);
+      curva([[x + s * r * .06 * u, y - r * .62], [x + s * r * (.58 + .07 * u), y - r * .72],
+             [x + s * r * (.62 + .06 * u), y + r * .02], [x + s * r * (.44 + .05 * u) + bal, y + r * (.42 - .05 * u)]]);
+    }
+    return;
+  }
+  for (let j = 0; j < 5; j++){                              // franja varrida para o lado
+    const u = j / 4;
+    ctx.strokeStyle = `rgba(${cor},${.75 * a})`; ctx.lineWidth = r * .016;
+    curva([[x + r * (.1 - .04 * u), y - r * .62], [x + r * (.02 - .08 * u), y - r * .45],
+           [x - r * (.2 + .05 * u), y - r * .42], [x - r * (.3 + .07 * u), y - r * (.27 - .03 * u)]]);
+  }
+}
+function rosto(x, y, r, cor, nv, ativo, t, e, estilo){
+  e = e || {s: 0, a: 0, sb: 0, sd: 0, st: 0, o: 1, oy: 0, f: 0};
+  const friday = estilo === "friday";
+  const corAura = e.c ? mistura(cor, e.c, .45 * e.f) : cor;
+  const pulso = 1 + nv * .25 + Math.sin(t * 2) * .02, a = .35 + .65 * ativo;
+  const g = ctx.createRadialGradient(x, y, 0, x, y, r * .6 * pulso);
+  g.addColorStop(0, `rgba(240,250,255,${a})`); g.addColorStop(.3, `rgba(${corAura},${.85 * a})`); g.addColorStop(1, `rgba(${corAura},0)`);
+  if (friday) cabeloFriday(x, y, r, cor, a, t, false);
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r * .6 * pulso, 0, 7); ctx.fill();
+  ctx.lineCap = "round";
+  for (let k = 0; k < 3; k++){ const raio = r * (.68 + k * .13), v = (k % 2 ? -1 : 1) * (.5 + k * .2) * (1 + ativo);
+    ctx.strokeStyle = `rgba(${corAura},${(.7 - k * .18) * a})`; ctx.lineWidth = r * (.028 - k * .006);
+    for (let s = 0; s < 6; s++){ const an = t * v + s * Math.PI / 3; ctx.beginPath(); ctx.arc(x, y, raio, an, an + .5 + nv * .4); ctx.stroke(); } }
+  const claro = `rgba(240,252,255,${.5 + .5 * ativo})`;
+  ctx.fillStyle = ctx.strokeStyle = claro; ctx.shadowColor = `rgb(${cor})`; ctx.shadowBlur = r * .12;
+  const pisca = (t + x) % 5 < .1 ? .15 : 1;
+  // olhos: arregalam, apertam, ou viram "^ ^" no sorriso grande
+  for (const l of [-1, 1]){
+    const ex = x + l * r * .19, ey = y - r * .1;
+    if (e.s > .6 && e.a < .2){
+      ctx.lineWidth = r * .028; ctx.beginPath(); ctx.arc(ex, ey + r * .035, r * .065, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke();
+    } else {
+      ctx.beginPath(); ctx.ellipse(ex, ey + e.oy * r * .02, r * .06 * (friday ? 1.08 : 1), r * .06 * pisca * e.o, 0, 0, 7); ctx.fill();
+    }
+    if (friday){                                            // cílios
+      ctx.lineWidth = r * .01;
+      for (let c = 0; c < 3; c++){ const an = -Math.PI / 2 + l * (.35 + c * .32);
+        const px = ex + Math.cos(an) * r * .06, py = ey + Math.sin(an) * r * .06 * e.o;
+        ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px + Math.cos(an) * r * .045, py + Math.sin(an) * r * .045); ctx.stroke(); }
+    }
+  }
+  // sobrancelhas: sobem (surpresa), ponta de dentro sobe (triste) ou desce (bravo), uma torta (desconfiado)
+  ctx.lineWidth = r * (friday ? .018 : .03);
+  for (const l of [-1, 1]){
+    const base = y - r * .23 - e.sb * r * .06 - e.st * l * r * .05;
+    const dentro = [x + l * r * .09, base - e.sd * r * .06], fora = [x + l * r * .3, base + e.sd * r * .03 + r * .01];
+    ctx.beginPath(); ctx.moveTo(dentro[0], dentro[1]);
+    ctx.quadraticCurveTo(x + l * r * .2, base - r * (friday ? .06 : .02) - e.sd * r * .01, fora[0], fora[1]); ctx.stroke();
+  }
+  // boca: cantos sobem ou descem com a emoção; "O" na surpresa; batom na SEXTA
+  const m = y + r * .17, w = r * (friday ? .13 : .15), ab = r * (.01 + nv * .12);
+  const canto = m - e.s * r * .06, meio = m + e.s * r * .07 + ab * 2;
+  if (friday){
+    ctx.fillStyle = `rgba(255,90,160,${.55 * a})`;
+    ctx.beginPath(); ctx.moveTo(x - w, canto); ctx.quadraticCurveTo(x, canto - r * .07, x + w, canto);
+    ctx.quadraticCurveTo(x, meio + r * .06, x - w, canto); ctx.fill(); ctx.fillStyle = claro;
+  }
+  ctx.lineWidth = r * .03;
+  if (e.a > .12 && nv < .15 && e.s > .5){                   // sorriso aberto (animado)
+    ctx.beginPath(); ctx.moveTo(x - w, canto); ctx.quadraticCurveTo(x, meio + e.a * r * .12, x + w, canto);
+    ctx.quadraticCurveTo(x, canto + r * .02, x - w, canto); ctx.globalAlpha = .55; ctx.fill(); ctx.globalAlpha = 1; ctx.stroke();
+  } else if (e.a > .12 && nv < .15){
+    ctx.beginPath(); ctx.ellipse(x, m + r * .02, r * .05 * (.6 + e.a), r * .07 * (.4 + e.a), 0, 0, 7);
+    ctx.globalAlpha = .5; ctx.fill(); ctx.globalAlpha = 1; ctx.stroke();
+  } else {
+    ctx.beginPath(); ctx.moveTo(x - w, canto); ctx.quadraticCurveTo(x, meio, x + w, canto);
+    if (ab > r * .03){ ctx.quadraticCurveTo(x, canto - ab * .3, x - w, canto); ctx.globalAlpha = .5; ctx.fill(); ctx.globalAlpha = 1; }
+    ctx.stroke();
+  }
+  ctx.shadowBlur = 0;
+  if (friday) cabeloFriday(x, y, r, cor, a, t, true);
+}
+function quadro(ms){
+  const t = ms / 1000;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  const f = ctx.createRadialGradient(W / 2, H * .35, 0, W / 2, H / 2, Math.max(W, H) * .8);
+  f.addColorStop(0, "#0b1a26"); f.addColorStop(1, "#02050a"); ctx.fillStyle = f; ctx.fillRect(0, 0, W, H);
+  const ps = estado.personagens || [], n = Math.max(1, ps.length), r = Math.min(W / (n * 2.4), H * .2);
+  ps.forEach((p, i) => {
+    const ativo = p.id === estado.quem ? 1 : 0;
+    brilho[p.id] = (brilho[p.id] || 0) + (ativo - (brilho[p.id] || 0)) * .12;
+    nivelSuave[p.id] = (nivelSuave[p.id] || 0) + ((ativo ? estado.nivel : 0) - (nivelSuave[p.id] || 0)) * .35;
+    const x = W * (i + .5) / n, y = H * .4 - brilho[p.id] * r * .08;
+    rosto(x, y, r * (1 + brilho[p.id] * .12), p.cor, nivelSuave[p.id], brilho[p.id], t + i * 1.7,
+          emoPasso(p.id, p.emocao || "neutro"), p.rosto || (String(p.id).startsWith("FRIDAY") ? "friday" : "jarvis"));
+    ctx.font = `700 ${Math.max(12, r * .17)}px Segoe UI`; ctx.textAlign = "center";
+    ctx.fillStyle = `rgba(${p.cor},${.45 + .55 * brilho[p.id]})`; ctx.fillText(p.nome, x, y + r * 1.15);
+  });
+  requestAnimationFrame(quadro);
+}
+requestAnimationFrame(quadro);
+addEventListener("keydown", e => { if (e.key === "Escape" && T) fetch("/api/palco/cmd?t=" + encodeURIComponent(T), {method: "POST", body: JSON.stringify({acao: "parar"})}); });
+if (Q.has("demo")){
+  const ps = [{id: "JARVIS", nome: "JARVIS", cor: "56,214,255"}, {id: "FRIDAY", nome: "FRIDAY", cor: "255,120,190"}];
+  const falas = [["FRIDAY", "Pode deixar, JARVIS. Eu assumo a música."], ["JARVIS", "Obrigado, FRIDAY. Estou compilando o projeto do senhor."]];
+  const caras = Object.keys(EMO);                           // 2.14: o demo passa por todas as emoções
+  let i = 0; setInterval(() => { const [q, tx] = falas[i++ % 2];
+    ps[0].emocao = caras[i % caras.length]; ps[1].emocao = caras[(i + 4) % caras.length];
+    aplicar({personagens: ps, quem: q, texto: tx + ` (${ps[0].emocao} / ${ps[1].emocao})`, nivel: .6, id: i, titulo: "JARVIS + FRIDAY", opcoes: []}); }, 2500);
+  setInterval(() => { estado.nivel = Math.random(); }, 90);
+} else {
+  setInterval(async () => { try { aplicar(await (await fetch("/api/palco?t=" + encodeURIComponent(T))).json()); } catch (e) {} }, 120);
+}
+</script>
+</body>
+</html>
